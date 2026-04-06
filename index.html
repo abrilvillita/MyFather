@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
@@ -6,6 +6,7 @@
   <title>MyFather — Faith Education Platform</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500&family=Cinzel:wght@400;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
 /* ═══════════════════════════════════════════
    MYFATHER — Design System
@@ -809,19 +810,166 @@ body.kids-mode .hero-bg {
   <div id="app"></div>
   <script>
 // ═══════════════════════════════════════════════════════
-// MYFATHER — Full App v2
-// Fixes: auth gate, admin separate, full i18n, all features
+// MYFATHER — Full App v2 + Supabase
 // ═══════════════════════════════════════════════════════
 
+// ── Supabase client ──
+const SUPA_URL  = 'https://eumxuuvtixkojkjuzyyo.supabase.co';
+const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV1bXh1dXZ0aXhrb2pranV6eXlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NDQ2NDksImV4cCI6MjA5MDAyMDY0OX0.srYdofHSEBQby4QKpBKeZ0BkSETl2H89UpupeUqYD7Q';
+const db = supabase.createClient(SUPA_URL, SUPA_ANON);
+
 const state = {
-  user: null,
-  mode: 'adult',
-  lang: 'es',
-  page: 'landing',
-  streak: 7,
+  user:        null,   // { id, email, name, plan, streak, account_type, coins }
+  supaSession: null,
+  mode:        'adult',
+  lang:        'es',
+  page:        'landing',
+  streak:      0,
   chatHistory: [],
-  quizState: { q: 0, score: 0, answered: false },
+  chatSessionId: null,
+  quizState:   { q: 0, score: 0, answered: false },
+  msgThisMonth: 0,   // mensajes IA usados este mes
 };
+
+// ── Supabase Auth helpers ────────────────────────────
+async function supaSignUp(email, pass, name, accountType){
+  const { data, error } = await db.auth.signUp({
+    email, password: pass,
+    options: { data: { full_name: name, account_type: accountType, lang: state.lang } }
+  });
+  if(error) throw error;
+  return data;
+}
+
+async function supaLogin(email, pass){
+  const { data, error } = await db.auth.signInWithPassword({ email, password: pass });
+  if(error) throw error;
+  return data;
+}
+
+async function supaLogout(){
+  await db.auth.signOut();
+  state.user = null;
+  state.supaSession = null;
+  state.chatHistory = [];
+  state.chatSessionId = null;
+}
+
+async function loadProfile(userId){
+  const { data } = await db.from('profiles').select('*').eq('id', userId).single();
+  return data;
+}
+
+// ── Límites de mensajes IA por plan ─────────────────
+const PLAN_MSG_LIMITS = { free: 10, basic: 60, premium: 99999, family: 99999, church: 99999 };
+
+function getMsgLimit(){ return PLAN_MSG_LIMITS[state.user?.plan||'free'] || 10; }
+function canSendMsg(){
+  if(!state.user) return false;
+  return state.msgThisMonth < getMsgLimit();
+}
+function getMsgRemaining(){ return Math.max(0, getMsgLimit() - state.msgThisMonth); }
+
+async function loadMsgCount(userId){
+  // Contar mensajes del mes actual desde chat_sessions
+  const start = new Date(); start.setDate(1); start.setHours(0,0,0,0);
+  try {
+    const { count } = await db.from('chat_sessions')
+      .select('*', { count:'exact', head:true })
+      .eq('user_id', userId)
+      .gte('created_at', start.toISOString());
+    state.msgThisMonth = count || 0;
+  } catch { state.msgThisMonth = 0; }
+}
+async function logCrisis(type, triggerText){
+  try {
+    await db.from('crisis_alerts').insert({
+      user_id: state.user?.id || null,
+      alert_type: type,
+      trigger_text: triggerText?.substring(0,200),
+      lang: state.lang,
+      mode: state.mode
+    });
+  } catch(e){ console.warn('crisis log failed', e); }
+}
+
+// ── Quiz score saver ─────────────────────────────────
+async function saveQuizScore(score, total){
+  if(!state.user) return;
+  try {
+    await db.from('quiz_scores').insert({
+      user_id: state.user.id,
+      score, total,
+      lang: state.lang,
+      mode: state.mode
+    });
+  } catch(e){ console.warn('quiz save failed', e); }
+}
+
+// ── Chat session persistence ─────────────────────────
+async function saveChatMessage(userMsg, aiReply){
+  if(!state.user) return;
+  try {
+    if(!state.chatSessionId){
+      const { data } = await db.from('chat_sessions').insert({
+        user_id: state.user.id,
+        mode: state.mode,
+        lang: state.lang,
+        messages: [{ role:'user', content:userMsg },{ role:'assistant', content:aiReply }]
+      }).select('id').single();
+      if(data) state.chatSessionId = data.id;
+    } else {
+      const msgs = [...state.chatHistory];
+      await db.from('chat_sessions')
+        .update({ messages: msgs, updated_at: new Date().toISOString() })
+        .eq('id', state.chatSessionId);
+    }
+  } catch(e){ console.warn('chat save failed', e); }
+}
+
+// ── Haven session logger ─────────────────────────────
+async function logHaven(feeling){
+  if(!state.user) return;
+  try {
+    await db.from('haven_sessions').insert({
+      user_id: state.user.id,
+      feeling,
+      lang: state.lang
+    });
+  } catch(e){ console.warn('haven log failed', e); }
+}
+
+// ── Init: restore session if exists ──────────────────
+async function initSupabase(){
+  const { data: { session } } = await db.auth.getSession();
+  if(session){
+    state.supaSession = session;
+    const profile = await loadProfile(session.user.id);
+    if(profile){
+      state.user = {
+        id: session.user.id,
+        email: session.user.email,
+        name: profile.full_name,
+        plan: profile.plan,
+        streak: profile.streak,
+        account_type: profile.account_type,
+        coins: profile.coins || 0,
+      };
+      state.streak = profile.streak;
+      state.lang   = profile.lang || 'es';
+      await loadMsgCount(session.user.id);
+    }
+  }
+  buildApp();
+}
+
+db.auth.onAuthStateChange((event, session) => {
+  if(event === 'SIGNED_OUT'){
+    state.user = null;
+    state.supaSession = null;
+    navigate('landing');
+  }
+});
 
 // ══════════════════════════════════════════════════════
 // i18n
@@ -853,7 +1001,7 @@ const T = {
     authTypeFamily:'Familia (hasta 5 miembros)', authTypeChurch:'Iglesia / Organización',
     authLoginBtn:'Iniciar sesión', authSignupBtn:'Crear cuenta',
     authGoSignup:'¿No tienes cuenta? Regístrate gratis', authGoLogin:'¿Ya tienes cuenta? Inicia sesión',
-    authBack:'← Volver al inicio', authHint:'Prueba: demo@myfather.app / demo123',
+    authBack:'← Volver al inicio', authHint:'',
     authLoginError:'Ingresa un email válido y contraseña de al menos 6 caracteres.',
     authSignupSuccess:'¡Cuenta creada! Bienvenido/a.',
     navHome:'Inicio', navChat:'Tutor IA', navLessons:'Lecciones',
@@ -927,10 +1075,30 @@ const T = {
     crisisSub:'Si estás en peligro, comunícate ahora. Son gratuitos y confidenciales.',
     crisisAlso:'También puedes hablar con un pastor de tu iglesia local.',
     crisisCall:'📞 Llamar ahora', crisisClose:'Cerrar',
-    toastMarked:'¡Lectura marcada! 🎉 Racha: 16 días', toastShared:'Devocional compartido',
+    toastMarked:'¡Lectura marcada! 🎉 Racha actualizada', toastShared:'Devocional compartido',
     toastSaved:'Guardado en favoritos', toastNote:'Nota guardada',
     toastMap:'Abriendo en Maps...', toastChurchReg:'Próximamente',
-    toastLessonSoon:'Animaciones próximamente — contenido cargando...', toastCheckout:'Redirigiendo a Stripe...',
+    toastLessonSoon:'¡Lección iniciando!', toastCheckout:'Redirigiendo a MercadoPago...',
+    toastCoinsBought:'¡Luces de Fe compradas! ✨',
+    navStore:'Tienda', storeTitle:'Tienda de Luces de Fe',
+    storeSub:'Invierte en tu camino espiritual',
+    storeBalance:'Tu saldo:',storeCoinName:'Luces de Fe',
+    forgotPass:'¿Olvidaste tu contraseña?',
+    forgotPassTitle:'Recuperar contraseña',
+    forgotPassSub:'Te enviaremos un enlace a tu correo',
+    forgotPassBtn:'Enviar enlace',
+    forgotPassSent:'¡Enviado! Revisa tu bandeja de entrada.',
+    contactTitle:'Contacto & Soporte',
+    contactSub:'¿Tienes preguntas, errores o quieres reportar algo?',
+    contactName:'Tu nombre',contactEmail:'Tu correo',
+    contactType:'Tipo de mensaje',contactMsg:'Tu mensaje',
+    contactTypeQ:'Pregunta general',contactTypeBug:'Reporte de error',
+    contactTypeReport:'Denuncia / Contenido inapropiado',
+    contactTypeChurch:'Quiero registrar mi iglesia',
+    contactSend:'Enviar mensaje',contactSent:'¡Mensaje enviado! Te respondemos en 24-48h.',
+    privacyTitle:'Política de Privacidad',
+    termsTitle:'Términos y Condiciones',
+    limitFreeChat:'Has alcanzado el límite de mensajes gratuitos este mes.',
   },
   en: {
     appTagline:'FAITH PLATFORM', pricing:'Plans', signIn:'Sign in', signUp:'Sign up',
@@ -958,7 +1126,7 @@ const T = {
     authTypeFamily:'Family (up to 5 members)', authTypeChurch:'Church / Organization',
     authLoginBtn:'Sign in', authSignupBtn:'Create account',
     authGoSignup:"Don't have an account? Sign up free", authGoLogin:'Already have an account? Sign in',
-    authBack:'← Back to home', authHint:'Try: demo@myfather.app / demo123',
+    authBack:'← Back to home', authHint:'',
     authLoginError:'Enter a valid email and password of at least 6 characters.',
     authSignupSuccess:'Account created! Welcome.',
     navHome:'Home', navChat:'AI Tutor', navLessons:'Lessons',
@@ -1032,10 +1200,29 @@ const T = {
     crisisSub:'If you are in danger, please reach out now. Free and confidential.',
     crisisAlso:'You can also talk to your local church pastor.',
     crisisCall:'📞 Call now', crisisClose:'Close',
-    toastMarked:'Reading marked! 🎉 Streak: 16 days', toastShared:'Devotional shared',
+    toastMarked:'Reading marked! 🎉 Streak updated', toastShared:'Devotional shared',
     toastSaved:'Saved to favorites', toastNote:'Note saved',
     toastMap:'Opening in Maps...', toastChurchReg:'Coming soon',
-    toastLessonSoon:'Animations coming soon — loading content...', toastCheckout:'Redirecting to Stripe...',
+    toastLessonSoon:'Lesson starting!', toastCheckout:'Redirecting to MercadoPago...',
+    toastCoinsBought:'Faith Lights purchased! ✨',
+    navStore:'Store', storeTitle:'Faith Lights Store',
+    storeSub:'Invest in your spiritual journey',
+    storeBalance:'Your balance:',storeCoinName:'Faith Lights',
+    forgotPass:'Forgot your password?',
+    forgotPassTitle:'Reset password',
+    forgotPassSub:"We'll send a link to your email",
+    forgotPassBtn:'Send link',
+    forgotPassSent:'Sent! Check your inbox.',
+    contactTitle:'Contact & Support',
+    contactSub:'Questions, errors or want to report something?',
+    contactName:'Your name',contactEmail:'Your email',
+    contactType:'Message type',contactMsg:'Your message',
+    contactTypeQ:'General question',contactTypeBug:'Bug report',
+    contactTypeReport:'Report / Inappropriate content',
+    contactTypeChurch:'I want to register my church',
+    contactSend:'Send message',contactSent:'Message sent! We reply within 24-48h.',
+    privacyTitle:'Privacy Policy',
+    termsTitle:'Terms & Conditions',
   }
 };
 function t(k){ return (T[state.lang]||T.es)[k] ?? k; }
@@ -1057,49 +1244,116 @@ const crisisLines = [
 
 const LESSONS = {
   es:[
-    {id:1,title:'Génesis: El principio de todo',emoji:'🌍',duration:'18 min',level:'Básico',progress:100,kids:false},
-    {id:2,title:'El Sermón del Monte',emoji:'⛰️',duration:'24 min',level:'Intermedio',progress:65,kids:false},
-    {id:3,title:'Los Salmos: Oración y adoración',emoji:'🎵',duration:'20 min',level:'Básico',progress:0,kids:false},
-    {id:4,title:'Las Cartas de Pablo',emoji:'📜',duration:'30 min',level:'Avanzado',progress:0,kids:false},
-    {id:5,title:'Proverbios: Sabiduría práctica',emoji:'💡',duration:'22 min',level:'Básico',progress:30,kids:false},
-    {id:6,title:'El Apocalipsis',emoji:'🌟',duration:'35 min',level:'Avanzado',progress:0,kids:false},
-    {id:7,title:'Noé y el Arca',emoji:'🚢',duration:'10 min',level:'Fácil',progress:100,kids:true},
-    {id:8,title:'David y Goliat',emoji:'🗡️',duration:'12 min',level:'Fácil',progress:80,kids:true},
-    {id:9,title:'Jonás y la ballena',emoji:'🐋',duration:'9 min',level:'Fácil',progress:0,kids:true},
-    {id:10,title:'Jesús alimenta a 5,000',emoji:'🍞',duration:'11 min',level:'Fácil',progress:0,kids:true},
+    // ADULTOS
+    {id:1,title:'Génesis: El principio de todo',emoji:'🌍',duration:'18 min',level:'Básico',progress:100,kids:false,desc:'La creación, Adán y Eva, la caída y sus consecuencias eternas.'},
+    {id:2,title:'El Sermón del Monte',emoji:'⛰️',duration:'24 min',level:'Intermedio',progress:65,kids:false,desc:'Las Bienaventuranzas y las enseñanzas más radicales de Jesús.'},
+    {id:3,title:'Los Salmos: Oración y adoración',emoji:'🎵',duration:'20 min',level:'Básico',progress:0,kids:false,desc:'El libro de poesía más grande de la humanidad como guía espiritual.'},
+    {id:4,title:'Las Cartas de Pablo',emoji:'📜',duration:'30 min',level:'Avanzado',progress:0,kids:false,desc:'Romanos, Corintios, Gálatas — el corazón de la teología cristiana.'},
+    {id:5,title:'Proverbios: Sabiduría práctica',emoji:'💡',duration:'22 min',level:'Básico',progress:30,kids:false,desc:'31 capítulos, 31 días: sabiduría para cada área de la vida.'},
+    {id:6,title:'El Apocalipsis',emoji:'🌟',duration:'35 min',level:'Avanzado',progress:0,kids:false,desc:'El libro más malinterpretado de la Biblia, explicado con claridad.'},
+    {id:7,title:'La Trinidad: Un Dios, tres personas',emoji:'🕊️',duration:'28 min',level:'Avanzado',progress:0,kids:false,desc:'Padre, Hijo y Espíritu Santo — el misterio central del cristianismo.'},
+    {id:8,title:'Los Diez Mandamientos hoy',emoji:'📋',duration:'25 min',level:'Intermedio',progress:0,kids:false,desc:'Cómo la ley de Moisés sigue siendo relevante en el siglo XXI.'},
+    {id:9,title:'El libro de Job: El sufrimiento y Dios',emoji:'❓',duration:'32 min',level:'Avanzado',progress:0,kids:false,desc:'La pregunta más difícil de la fe: ¿por qué sufre el justo?'},
+    {id:10,title:'Los Evangelios comparados',emoji:'📖',duration:'40 min',level:'Avanzado',progress:0,kids:false,desc:'Mateo, Marcos, Lucas y Juan: cuatro perspectivas del mismo Jesús.'},
+    {id:11,title:'Isaías: El profeta mesiánico',emoji:'🔮',duration:'26 min',level:'Intermedio',progress:0,kids:false,desc:'Las profecías sobre el Mesías escritas 700 años antes de Jesús.'},
+    {id:12,title:'El fruto del Espíritu',emoji:'🍇',duration:'20 min',level:'Básico',progress:0,kids:false,desc:'Amor, gozo, paz... Cómo vivir Gálatas 5:22 en el día a día.'},
+    {id:13,title:'Oraciones bíblicas: aprender a orar',emoji:'🙏',duration:'18 min',level:'Básico',progress:0,kids:false,desc:'Padre Nuestro, oración de Jabes, Salmo 23 — oraciones que transforman.'},
+    {id:14,title:'La Última Cena y la Eucaristía',emoji:'🍷',duration:'22 min',level:'Intermedio',progress:0,kids:false,desc:'La pascua judía, el nuevo pacto y el significado de la comunión.'},
+    {id:15,title:'Daniel y la fe en tiempos oscuros',emoji:'🦁',duration:'24 min',level:'Intermedio',progress:0,kids:false,desc:'Cómo mantener la fe bajo presión — lecciones de Babilonia.'},
+    // NIÑOS
+    {id:101,title:'Noé y el Arca',emoji:'🚢',duration:'10 min',level:'Fácil',progress:100,kids:true,desc:'La historia del hombre que construyó un barco gigante para salvar a los animales.'},
+    {id:102,title:'David y Goliat',emoji:'🗡️',duration:'12 min',level:'Fácil',progress:80,kids:true,desc:'El niño valiente que derrotó al gigante más grande con solo una piedra.'},
+    {id:103,title:'Jonás y la ballena',emoji:'🐋',duration:'9 min',level:'Fácil',progress:0,kids:true,desc:'La aventura del profeta que vivió 3 días dentro de una ballena gigante.'},
+    {id:104,title:'Jesús alimenta a 5,000',emoji:'🍞',duration:'11 min',level:'Fácil',progress:0,kids:true,desc:'Con 5 panes y 2 peces, Jesús hizo un milagro increíble.'},
+    {id:105,title:'Moisés y el Mar Rojo',emoji:'🌊',duration:'13 min',level:'Fácil',progress:0,kids:true,desc:'El día que Dios separó el mar para que su pueblo cruzara.'},
+    {id:106,title:'José y su manto de colores',emoji:'🌈',duration:'14 min',level:'Fácil',progress:0,kids:true,desc:'La historia del soñador que perdonó a sus hermanos y se volvió rey.'},
+    {id:107,title:'La Creación en 7 días',emoji:'✨',duration:'10 min',level:'Fácil',progress:0,kids:true,desc:'¿Cómo hizo Dios el cielo, la tierra, los animales y a nosotros?'},
+    {id:108,title:'Daniel en el foso de los leones',emoji:'🦁',duration:'11 min',level:'Fácil',progress:0,kids:true,desc:'El joven que no tuvo miedo aunque lo echaron con leones hambrientos.'},
+    {id:109,title:'El Hijo Pródigo',emoji:'🏠',duration:'10 min',level:'Fácil',progress:0,kids:true,desc:'La historia más hermosa de amor de papá: siempre te recibo de vuelta.'},
+    {id:110,title:'Zaqueo el cobrador de impuestos',emoji:'🌳',duration:'9 min',level:'Fácil',progress:0,kids:true,desc:'El hombrecito que subió a un árbol y cambió su vida al conocer a Jesús.'},
+    {id:111,title:'La Estrella de Belén',emoji:'⭐',duration:'10 min',level:'Fácil',progress:0,kids:true,desc:'Cómo llegaron los Reyes Magos siguiendo una estrella especial al bebé Jesús.'},
+    {id:112,title:'El Buen Samaritano',emoji:'❤️',duration:'10 min',level:'Fácil',progress:0,kids:true,desc:'La historia de ayudar a alguien aunque sea diferente a ti.'},
   ],
   en:[
-    {id:1,title:'Genesis: The Beginning of Everything',emoji:'🌍',duration:'18 min',level:'Basic',progress:100,kids:false},
-    {id:2,title:'The Sermon on the Mount',emoji:'⛰️',duration:'24 min',level:'Intermediate',progress:65,kids:false},
-    {id:3,title:'Psalms: Prayer and Worship',emoji:'🎵',duration:'20 min',level:'Basic',progress:0,kids:false},
-    {id:4,title:"Paul's Letters",emoji:'📜',duration:'30 min',level:'Advanced',progress:0,kids:false},
-    {id:5,title:'Proverbs: Practical Wisdom',emoji:'💡',duration:'22 min',level:'Basic',progress:30,kids:false},
-    {id:6,title:'The Book of Revelation',emoji:'🌟',duration:'35 min',level:'Advanced',progress:0,kids:false},
-    {id:7,title:'Noah and the Ark',emoji:'🚢',duration:'10 min',level:'Easy',progress:100,kids:true},
-    {id:8,title:'David and Goliath',emoji:'🗡️',duration:'12 min',level:'Easy',progress:80,kids:true},
-    {id:9,title:'Jonah and the Whale',emoji:'🐋',duration:'9 min',level:'Easy',progress:0,kids:true},
-    {id:10,title:'Jesus Feeds 5,000',emoji:'🍞',duration:'11 min',level:'Easy',progress:0,kids:true},
+    {id:1,title:'Genesis: The Beginning of Everything',emoji:'🌍',duration:'18 min',level:'Basic',progress:100,kids:false,desc:'Creation, Adam and Eve, the fall and its eternal consequences.'},
+    {id:2,title:'The Sermon on the Mount',emoji:'⛰️',duration:'24 min',level:'Intermediate',progress:65,kids:false,desc:"The Beatitudes and Jesus's most radical teachings."},
+    {id:3,title:'Psalms: Prayer and Worship',emoji:'🎵',duration:'20 min',level:'Basic',progress:0,kids:false,desc:"Humanity's greatest book of poetry as a spiritual guide."},
+    {id:4,title:"Paul's Letters",emoji:'📜',duration:'30 min',level:'Advanced',progress:0,kids:false,desc:'Romans, Corinthians, Galatians — the heart of Christian theology.'},
+    {id:5,title:'Proverbs: Practical Wisdom',emoji:'💡',duration:'22 min',level:'Basic',progress:30,kids:false,desc:'31 chapters, 31 days: wisdom for every area of life.'},
+    {id:6,title:'The Book of Revelation',emoji:'🌟',duration:'35 min',level:'Advanced',progress:0,kids:false,desc:"The Bible's most misinterpreted book, explained with clarity."},
+    {id:7,title:'The Trinity: One God, Three Persons',emoji:'🕊️',duration:'28 min',level:'Advanced',progress:0,kids:false,desc:"Father, Son and Holy Spirit — Christianity's central mystery."},
+    {id:8,title:'The Ten Commandments Today',emoji:'📋',duration:'25 min',level:'Intermediate',progress:0,kids:false,desc:"How Moses' law remains relevant in the 21st century."},
+    {id:9,title:'Job: Suffering and God',emoji:'❓',duration:'32 min',level:'Advanced',progress:0,kids:false,desc:'The hardest question in faith: why do the righteous suffer?'},
+    {id:10,title:'The Gospels Compared',emoji:'📖',duration:'40 min',level:'Advanced',progress:0,kids:false,desc:'Matthew, Mark, Luke and John: four perspectives on the same Jesus.'},
+    {id:101,title:'Noah and the Ark',emoji:'🚢',duration:'10 min',level:'Easy',progress:100,kids:true,desc:'The man who built a giant boat to save the animals.'},
+    {id:102,title:'David and Goliath',emoji:'🗡️',duration:'12 min',level:'Easy',progress:80,kids:true,desc:'The brave boy who defeated the biggest giant with just one stone.'},
+    {id:103,title:'Jonah and the Whale',emoji:'🐋',duration:'9 min',level:'Easy',progress:0,kids:true,desc:'The prophet who lived 3 days inside a giant whale.'},
+    {id:104,title:'Jesus Feeds 5,000',emoji:'🍞',duration:'11 min',level:'Easy',progress:0,kids:true,desc:'With 5 loaves and 2 fish, Jesus did an incredible miracle.'},
+    {id:105,title:'Moses and the Red Sea',emoji:'🌊',duration:'13 min',level:'Easy',progress:0,kids:true,desc:'The day God split the sea so His people could cross.'},
+    {id:106,title:"Joseph's Coat of Many Colors",emoji:'🌈',duration:'14 min',level:'Easy',progress:0,kids:true,desc:'The story of the dreamer who forgave his brothers and became a ruler.'},
+    {id:107,title:'Creation in 7 Days',emoji:'✨',duration:'10 min',level:'Easy',progress:0,kids:true,desc:'How did God make the sky, the earth, the animals and us?'},
+    {id:108,title:"Daniel in the Lions' Den",emoji:'🦁',duration:'11 min',level:'Easy',progress:0,kids:true,desc:'The young man who had no fear even when thrown with hungry lions.'},
+    {id:109,title:'The Prodigal Son',emoji:'🏠',duration:'10 min',level:'Easy',progress:0,kids:true,desc:"The most beautiful story of a father's love: I always welcome you back."},
+    {id:110,title:'Zacchaeus the Tax Collector',emoji:'🌳',duration:'9 min',level:'Easy',progress:0,kids:true,desc:'The little man who climbed a tree and changed his life by meeting Jesus.'},
   ]
 };
 
 const QUIZ = {
   es:[
-    {q:'¿Cuántos días duró el diluvio universal?',opts:['40 días y noches','20 días','7 días','100 días'],correct:0,verse:'Génesis 7:4'},
-    {q:'¿Quién fue el primer rey de Israel?',opts:['David','Salomón','Saúl','Moisés'],correct:2,verse:'1 Samuel 10:1'},
-    {q:'¿En qué río fue bautizado Jesús?',opts:['Éufrates','Nilo','Jordán','Tigris'],correct:2,verse:'Mateo 3:13'},
-    {q:'¿Cuántos apóstoles eligió Jesús?',opts:['7','10','14','12'],correct:3,verse:'Lucas 6:13'},
-    {q:'¿Quién escribió el Apocalipsis?',opts:['Pablo','Pedro','Juan','Lucas'],correct:2,verse:'Apocalipsis 1:9'},
-    {q:'¿Cuántos libros tiene el Nuevo Testamento?',opts:['27','39','24','31'],correct:0,verse:'—'},
-    {q:'¿Dónde nació Jesús?',opts:['Nazaret','Jerusalén','Belén','Capernaum'],correct:2,verse:'Lucas 2:4-7'},
+    {q:'¿Cuántos días duró el diluvio universal?',opts:['40 días y noches','20 días','7 días','100 días'],correct:0,verse:'Génesis 7:4',kids:false},
+    {q:'¿Quién fue el primer rey de Israel?',opts:['David','Salomón','Saúl','Moisés'],correct:2,verse:'1 Samuel 10:1',kids:false},
+    {q:'¿En qué río fue bautizado Jesús?',opts:['Éufrates','Nilo','Jordán','Tigris'],correct:2,verse:'Mateo 3:13',kids:false},
+    {q:'¿Cuántos apóstoles eligió Jesús?',opts:['7','10','14','12'],correct:3,verse:'Lucas 6:13',kids:false},
+    {q:'¿Quién escribió el Apocalipsis?',opts:['Pablo','Pedro','Juan','Lucas'],correct:2,verse:'Apocalipsis 1:9',kids:false},
+    {q:'¿Cuántos libros tiene el Nuevo Testamento?',opts:['27','39','24','31'],correct:0,verse:'—',kids:false},
+    {q:'¿Dónde nació Jesús?',opts:['Nazaret','Jerusalén','Belén','Capernaum'],correct:2,verse:'Lucas 2:4-7',kids:false},
+    {q:'¿Quién traicionó a Jesús?',opts:['Pedro','Judas Iscariote','Tomás','Juan'],correct:1,verse:'Mateo 26:14-15',kids:false},
+    {q:'¿Cuántos libros tiene el Antiguo Testamento?',opts:['27','39','46','33'],correct:1,verse:'—',kids:false},
+    {q:'¿Qué profeta estuvo en el vientre de un gran pez?',opts:['Elías','Eliseo','Jonás','Isaías'],correct:2,verse:'Jonás 1:17',kids:false},
+    {q:'¿Quién construyó el Templo de Jerusalén?',opts:['David','Salomón','Moisés','Abraham'],correct:1,verse:'1 Reyes 6:1',kids:false},
+    {q:'¿Con cuántos panes alimentó Jesús a 5,000?',opts:['3','7','5','10'],correct:2,verse:'Juan 6:9',kids:false},
+    {q:'¿Qué árbol se mencionó en el Jardín del Edén?',opts:['Olivo','Higuera','Del conocimiento del bien y el mal','Cedro'],correct:2,verse:'Génesis 2:9',kids:false},
+    {q:'¿A qué ciudad fue enviado Jonás?',opts:['Babilonia','Nínive','Tiro','Sidón'],correct:1,verse:'Jonás 1:2',kids:false},
+    {q:'¿Quién negó a Jesús tres veces?',opts:['Juan','Judas','Pedro','Tomás'],correct:2,verse:'Mateo 26:75',kids:false},
+    {q:'¿En cuántos días resucitó Jesús?',opts:['1','2','3','7'],correct:2,verse:'Lucas 24:7',kids:false},
+    {q:'¿Quién fue el primer hombre según la Biblia?',opts:['Noé','Abraham','Adán','Moisés'],correct:2,verse:'Génesis 2:7',kids:false},
+    {q:'¿Cuál fue la primera señal milagrosa de Jesús?',opts:['Caminar sobre el agua','Sanar un ciego','Convertir agua en vino','Resucitar a Lázaro'],correct:2,verse:'Juan 2:11',kids:false},
+    {q:'¿Quién escribió la mayoría de los Salmos?',opts:['Moisés','Salomón','David','Ezequías'],correct:2,verse:'Salmo 72:20',kids:false},
+    {q:'¿Cómo se llama el monte donde Moisés recibió los mandamientos?',opts:['Monte Carmelo','Monte Sinaí','Monte de los Olivos','Monte Horeb'],correct:1,verse:'Éxodo 19:20',kids:false},
+    // Niños
+    {q:'¿Quién construyó el arca?',opts:['Abraham','Moisés','Noé','David'],correct:2,verse:'Génesis 6:14',kids:true},
+    {q:'¿Cuántos peces usó Jesús para alimentar a la multitud?',opts:['5','2','10','3'],correct:1,verse:'Juan 6:9',kids:true},
+    {q:'¿Con qué derribó David a Goliat?',opts:['Una espada','Una honda y una piedra','Un arco','Sus puños'],correct:1,verse:'1 Samuel 17:49',kids:true},
+    {q:'¿Cuántos animales entró de cada especie al arca?',opts:['1','5','2','10'],correct:2,verse:'Génesis 6:19',kids:true},
+    {q:'¿Quién era el padre de José el del manto de colores?',opts:['Abraham','Isaac','Jacob','Moisés'],correct:2,verse:'Génesis 37:3',kids:true},
+    {q:'¿Cuántos días y noches estuvo Jonás en el pez?',opts:['1','7','3','40'],correct:2,verse:'Jonás 1:17',kids:true},
+    {q:'¿Cómo se llamaba la madre de Jesús?',opts:['Ana','Sara','María','Débora'],correct:2,verse:'Lucas 1:27',kids:true},
+    {q:'¿En qué ciudad nació Jesús?',opts:['Nazaret','Belén','Jerusalén','Jericó'],correct:1,verse:'Lucas 2:7',kids:true},
+    {q:'¿Qué comida multiplicó Jesús para 5,000 personas?',opts:['Peces y arroz','Panes y peces','Carne y pan','Frutas y peces'],correct:1,verse:'Juan 6:9',kids:true},
+    {q:'¿A quién subió Dios al cielo en un torbellino?',opts:['Moisés','Elías','Isaías','David'],correct:1,verse:'2 Reyes 2:11',kids:true},
   ],
   en:[
-    {q:'How many days did the great flood last?',opts:['40 days and nights','20 days','7 days','100 days'],correct:0,verse:'Genesis 7:4'},
-    {q:'Who was the first king of Israel?',opts:['David','Solomon','Saul','Moses'],correct:2,verse:'1 Samuel 10:1'},
-    {q:'In which river was Jesus baptized?',opts:['Euphrates','Nile','Jordan','Tigris'],correct:2,verse:'Matthew 3:13'},
-    {q:'How many apostles did Jesus choose?',opts:['7','10','14','12'],correct:3,verse:'Luke 6:13'},
-    {q:'Who wrote Revelation?',opts:['Paul','Peter','John','Luke'],correct:2,verse:'Revelation 1:9'},
-    {q:'How many books are in the New Testament?',opts:['27','39','24','31'],correct:0,verse:'—'},
-    {q:'Where was Jesus born?',opts:['Nazareth','Jerusalem','Bethlehem','Capernaum'],correct:2,verse:'Luke 2:4-7'},
+    {q:'How many days did the great flood last?',opts:['40 days and nights','20 days','7 days','100 days'],correct:0,verse:'Genesis 7:4',kids:false},
+    {q:'Who was the first king of Israel?',opts:['David','Solomon','Saul','Moses'],correct:2,verse:'1 Samuel 10:1',kids:false},
+    {q:'In which river was Jesus baptized?',opts:['Euphrates','Nile','Jordan','Tigris'],correct:2,verse:'Matthew 3:13',kids:false},
+    {q:'How many apostles did Jesus choose?',opts:['7','10','14','12'],correct:3,verse:'Luke 6:13',kids:false},
+    {q:'Who wrote Revelation?',opts:['Paul','Peter','John','Luke'],correct:2,verse:'Revelation 1:9',kids:false},
+    {q:'How many books are in the New Testament?',opts:['27','39','24','31'],correct:0,verse:'—',kids:false},
+    {q:'Where was Jesus born?',opts:['Nazareth','Jerusalem','Bethlehem','Capernaum'],correct:2,verse:'Luke 2:4-7',kids:false},
+    {q:'Who betrayed Jesus?',opts:['Peter','Judas Iscariot','Thomas','John'],correct:1,verse:'Matthew 26:14-15',kids:false},
+    {q:'How many books are in the Old Testament?',opts:['27','39','46','33'],correct:1,verse:'—',kids:false},
+    {q:'Which prophet was inside a great fish?',opts:['Elijah','Elisha','Jonah','Isaiah'],correct:2,verse:'Jonah 1:17',kids:false},
+    {q:'Who built the Temple in Jerusalem?',opts:['David','Solomon','Moses','Abraham'],correct:1,verse:'1 Kings 6:1',kids:false},
+    {q:'What was Jesus first miracle?',opts:['Walking on water','Healing a blind man','Turning water into wine','Raising Lazarus'],correct:2,verse:'John 2:11',kids:false},
+    {q:'Who wrote most of the Psalms?',opts:['Moses','Solomon','David','Hezekiah'],correct:2,verse:'Psalm 72:20',kids:false},
+    {q:'Who denied Jesus three times?',opts:['John','Judas','Peter','Thomas'],correct:2,verse:'Matthew 26:75',kids:false},
+    {q:'In how many days did Jesus rise from the dead?',opts:['1','2','3','7'],correct:2,verse:'Luke 24:7',kids:false},
+    {q:'Who built the ark?',opts:['Abraham','Moses','Noah','David'],correct:2,verse:'Genesis 6:14',kids:true},
+    {q:'How many fish did Jesus use to feed the crowd?',opts:['5','2','10','3'],correct:1,verse:'John 6:9',kids:true},
+    {q:'What did David use to defeat Goliath?',opts:['A sword','A sling and stone','A bow','His fists'],correct:1,verse:'1 Samuel 17:49',kids:true},
+    {q:"What was Jesus' mother's name?",opts:['Anna','Sarah','Mary','Deborah'],correct:2,verse:'Luke 1:27',kids:true},
+    {q:'In what city was Jesus born?',opts:['Nazareth','Bethlehem','Jerusalem','Jericho'],correct:1,verse:'Luke 2:7',kids:true},
+    {q:'How many days was Jonah inside the fish?',opts:['1','7','3','40'],correct:2,verse:'Jonah 1:17',kids:true},
   ]
 };
 
@@ -1134,6 +1388,146 @@ const PASSAGE = {
   en:`<span class="verse-num">1</span>Now when Jesus saw the crowds, he went up on a mountainside and sat down. His disciples came to him, <span class="verse-num">2</span>and he began to teach them. He said: <span class="verse-num">3</span>Blessed are the poor in spirit, for theirs is the kingdom of heaven. <span class="verse-num">4</span>Blessed are those who mourn, for they will be comforted. <span class="verse-num">5</span>Blessed are the meek, for they will inherit the earth. <span class="verse-num">6</span>Blessed are those who hunger and thirst for righteousness, for they will be filled. <span class="verse-num">7</span>Blessed are the merciful, for they will be shown mercy. <span class="verse-num">8</span>Blessed are the pure in heart, for they will see God. <span class="verse-num">9</span>Blessed are the peacemakers, for they will be called children of God.`
 };
 
+// ── 30 versículos del día rotativos ──────────────────
+const DAILY_VERSES = {
+  es:[
+    {v:'"Porque yo sé los planes que tengo para ustedes, planes de bienestar y no de calamidad."',r:'Jeremías 29:11'},
+    {v:'"Todo lo puedo en Cristo que me fortalece."',r:'Filipenses 4:13'},
+    {v:'"El Señor es mi pastor; nada me faltará."',r:'Salmo 23:1'},
+    {v:'"Confía en el Señor con todo tu corazón y no te apoyes en tu propio entendimiento."',r:'Proverbios 3:5'},
+    {v:'"Dios es nuestro refugio y nuestra fortaleza, nuestra ayuda en tiempos de angustia."',r:'Salmo 46:1'},
+    {v:'"El amor es sufrido, es benigno; el amor no tiene envidia..."',r:'1 Corintios 13:4'},
+    {v:'"Porque de tal manera amó Dios al mundo que dio a su Hijo unigénito."',r:'Juan 3:16'},
+    {v:'"El que habita al abrigo del Altísimo morará bajo la sombra del Omnipotente."',r:'Salmo 91:1'},
+    {v:'"Sean fuertes y valientes. No teman ni se asusten... pues el Señor tu Dios va contigo."',r:'Deuteronomio 31:6'},
+    {v:'"Pedid y se os dará; buscad y hallaréis; llamad y se os abrirá."',r:'Mateo 7:7'},
+    {v:'"Venid a mí todos los que estáis trabajados y cargados, y yo os haré descansar."',r:'Mateo 11:28'},
+    {v:'"No os afanéis por nada; sino sean conocidas vuestras peticiones delante de Dios."',r:'Filipenses 4:6'},
+    {v:'"Aunque ande en valle de sombra de muerte, no temeré mal alguno, porque tú estarás conmigo."',r:'Salmo 23:4'},
+    {v:'"Yo soy el camino, la verdad y la vida; nadie viene al Padre sino por mí."',r:'Juan 14:6'},
+    {v:'"Esperad en el Señor; esforzaos y aliéntese vuestro corazón."',r:'Salmo 27:14'},
+    {v:'"El principio de la sabiduría es el temor del Señor."',r:'Proverbios 9:10'},
+    {v:'"No hay nada imposible para Dios."',r:'Lucas 1:37'},
+    {v:'"La paz de Dios, que sobrepasa todo entendimiento, guardará vuestros corazones."',r:'Filipenses 4:7'},
+    {v:'"Amarás al Señor tu Dios con todo tu corazón, con toda tu alma y con toda tu mente."',r:'Mateo 22:37'},
+    {v:'"Amarás a tu prójimo como a ti mismo."',r:'Mateo 22:39'},
+    {v:'"Sed fuertes y valientes, no temáis ni os espantéis... pues Jehová tu Dios va contigo."',r:'Josué 1:9'},
+    {v:'"El Señor dirige los pasos del hombre fiel y le complace ver su camino."',r:'Salmo 37:23'},
+    {v:'"¿Acaso no te mando que seas fuerte y valiente?"',r:'Josué 1:9'},
+    {v:'"Buscad primeramente el reino de Dios y su justicia, y todas estas cosas os serán añadidas."',r:'Mateo 6:33'},
+    {v:'"Porque gracia sois salvos por medio de la fe, y esto no de vosotros, pues es don de Dios."',r:'Efesios 2:8'},
+    {v:'"Respondió Jesús: amarás al Señor tu Dios sobre todas las cosas."',r:'Lucas 10:27'},
+    {v:'"El amor nunca deja de ser."',r:'1 Corintios 13:8'},
+    {v:'"Dios resistirá a los soberbios y dará gracia a los humildes."',r:'Santiago 4:6'},
+    {v:'"Cercano está el Señor a los que tienen el corazón quebrantado."',r:'Salmo 34:18'},
+    {v:'"El fruto del Espíritu es amor, gozo, paz, paciencia, benignidad, bondad, fe."',r:'Gálatas 5:22'},
+  ],
+  en:[
+    {v:'"For I know the plans I have for you," declares the Lord, "plans to prosper you and not to harm you."',r:'Jeremiah 29:11'},
+    {v:'"I can do all things through Christ who strengthens me."',r:'Philippians 4:13'},
+    {v:'"The Lord is my shepherd; I shall not want."',r:'Psalm 23:1'},
+    {v:'"Trust in the Lord with all your heart and lean not on your own understanding."',r:'Proverbs 3:5'},
+    {v:'"God is our refuge and strength, an ever-present help in trouble."',r:'Psalm 46:1'},
+    {v:'"For God so loved the world that he gave his one and only Son."',r:'John 3:16'},
+    {v:'"Be strong and courageous. Do not be afraid... for the Lord your God goes with you."',r:'Deuteronomy 31:6'},
+    {v:'"Ask and it will be given to you; seek and you will find; knock and the door will be opened."',r:'Matthew 7:7'},
+    {v:'"Come to me, all you who are weary and burdened, and I will give you rest."',r:'Matthew 11:28'},
+    {v:'"Do not be anxious about anything, but in every situation, by prayer... present your requests to God."',r:'Philippians 4:6'},
+    {v:'"Even though I walk through the darkest valley, I will fear no evil, for you are with me."',r:'Psalm 23:4'},
+    {v:'"I am the way and the truth and the life. No one comes to the Father except through me."',r:'John 14:6'},
+    {v:'"Nothing is impossible with God."',r:'Luke 1:37'},
+    {v:'"The peace of God, which transcends all understanding, will guard your hearts and your minds."',r:'Philippians 4:7'},
+    {v:'"Love the Lord your God with all your heart and with all your soul and with all your mind."',r:'Matthew 22:37'},
+    {v:'"Love your neighbor as yourself."',r:'Matthew 22:39'},
+    {v:'"Be strong and courageous. Do not be afraid; do not be discouraged."',r:'Joshua 1:9'},
+    {v:'"Love is patient, love is kind. It does not envy, it does not boast."',r:'1 Corinthians 13:4'},
+    {v:'"Seek first his kingdom and his righteousness, and all these things will be given to you."',r:'Matthew 6:33'},
+    {v:'"For it is by grace you have been saved, through faith — and this is not from yourselves, it is the gift of God."',r:'Ephesians 2:8'},
+    {v:'"The fruit of the Spirit is love, joy, peace, forbearance, kindness, goodness, faithfulness."',r:'Galatians 5:22'},
+  ]
+};
+function getTodayVerse(){
+  const arr = DAILY_VERSES[state.lang] || DAILY_VERSES.es;
+  const idx = new Date().getDate() % arr.length;
+  return arr[idx];
+}
+
+// ── Tienda: Luces de Fe ───────────────────────────────
+const STORE_ITEMS = {
+  es:[
+    // Rachas — el ítem más vendido en Duolingo
+    {id:'shield1',   name:'Escudo de Racha 1 día', icon:'🛡️', price:9,   coins:1,
+     desc:'Protege tu racha si no puedes completar tu lectura hoy.',
+     detail:'¿Ocupado o viajando? Tu racha queda a salvo.',category:'racha'},
+    {id:'shield7',   name:'Escudo Semanal',         icon:'⚔️', price:25,  coins:3,
+     desc:'Protege tu racha durante 7 días.',
+     detail:'Ideal para semanas de trabajo o viaje.',category:'racha'},
+    {id:'shield30',  name:'Escudo de Mes',           icon:'🏰', price:59,  coins:7,
+     desc:'Racha protegida durante 30 días completos.',
+     detail:'Para los más ocupados — sin perder tu progreso.',category:'racha'},
+    // Quiz
+    {id:'quiz_hint', name:'Ayuda de Ángel',          icon:'😇', price:5,   coins:1,
+     desc:'Elimina 2 opciones incorrectas en una pregunta.',
+     detail:'Como un salvavidas pero bíblico.',category:'quiz'},
+    {id:'quiz_time', name:'Tiempo Extra +45s',        icon:'⏳', price:5,   coins:1,
+     desc:'Añade 45 segundos extra en tu próximo quiz.',
+     detail:'Para los que piensan con calma.',category:'quiz'},
+    {id:'quiz_skip', name:'Saltar Pregunta',          icon:'⏭️', price:8,   coins:1,
+     desc:'Salta una pregunta difícil sin perder puntos.',
+     detail:'Útil en racha de respuestas correctas.',category:'quiz'},
+    // Chat IA
+    {id:'chat20',    name:'+20 Mensajes IA',          icon:'💬', price:10,  coins:1,
+     desc:'Añade 20 mensajes al Tutor IA este mes.',
+     detail:'Para cuando ya usaste tu límite.',category:'chat'},
+    {id:'chat50',    name:'+50 Mensajes IA',          icon:'🤖', price:19,  coins:2,
+     desc:'50 mensajes adicionales al Tutor IA.',
+     detail:'El más popular entre usuarios Free.',category:'chat'},
+    // Bonos
+    {id:'xp2',       name:'Multiplicador ×2 (3 días)',icon:'⚡', price:15,  coins:2,
+     desc:'Duplica los puntos de experiencia por 3 días.',
+     detail:'Sube de nivel mucho más rápido.',category:'bonus'},
+    {id:'lesson1',   name:'Lección Premium',          icon:'📚', price:12,  coins:1,
+     desc:'Desbloquea 1 lección avanzada por 30 días.',
+     detail:'Sin necesidad de suscripción premium.',category:'bonus'},
+    // Recargas
+    {id:'coins_50',  name:'50 Luces de Fe',           icon:'✨', price:25,  coins:null,
+     desc:'Paquete pequeño para comenzar.',detail:'~$0.50 por luz.',category:'recarga',isCoinPack:true,amount:50},
+    {id:'coins_150', name:'150 Luces de Fe',          icon:'🌟', price:59,  coins:null,
+     desc:'El más popular — ¡ahorra 21%!',detail:'~$0.39 por luz.',category:'recarga',isCoinPack:true,amount:150},
+    {id:'coins_400', name:'400 Luces de Fe',          icon:'👑', price:129, coins:null,
+     desc:'Para los más devotos — ¡ahorra 35%!',detail:'~$0.32 por luz.',category:'recarga',isCoinPack:true,amount:400},
+  ],
+  en:[
+    {id:'shield1',   name:'1-Day Streak Shield',     icon:'🛡️', price:9,   coins:1,
+     desc:"Protect your streak if you can't complete today's reading.",
+     detail:'Busy or traveling? Your streak stays safe.',category:'streak'},
+    {id:'shield7',   name:'Weekly Shield',            icon:'⚔️', price:25,  coins:3,
+     desc:'Protect your streak for 7 days.',
+     detail:'Perfect for busy work weeks or travel.',category:'streak'},
+    {id:'quiz_hint', name:'Angel Hint',               icon:'😇', price:5,   coins:1,
+     desc:'Eliminate 2 wrong options on a quiz question.',
+     detail:'Like a lifeline, but biblical.',category:'quiz'},
+    {id:'quiz_time', name:'Extra Time +45s',          icon:'⏳', price:5,   coins:1,
+     desc:'Add 45 extra seconds to your next quiz.',
+     detail:'For those who like to think it through.',category:'quiz'},
+    {id:'chat20',    name:'+20 AI Messages',          icon:'💬', price:10,  coins:1,
+     desc:'Add 20 messages to the AI Tutor this month.',
+     detail:"For when you've hit your limit.",category:'chat'},
+    {id:'chat50',    name:'+50 AI Messages',          icon:'🤖', price:19,  coins:2,
+     desc:'50 additional AI Tutor messages.',
+     detail:'Most popular among Free users.',category:'chat'},
+    {id:'xp2',       name:'2× Multiplier (3 days)',  icon:'⚡', price:15,  coins:2,
+     desc:'Double your XP for 3 days.',
+     detail:'Level up much faster.',category:'bonus'},
+    {id:'coins_50',  name:'50 Faith Lights',         icon:'✨', price:25,  coins:null,
+     desc:'Small starter pack.',detail:'~$0.50/light.',category:'recharge',isCoinPack:true,amount:50},
+    {id:'coins_150', name:'150 Faith Lights',        icon:'🌟', price:59,  coins:null,
+     desc:'Most popular — save 21%!',detail:'~$0.39/light.',category:'recharge',isCoinPack:true,amount:150},
+    {id:'coins_400', name:'400 Faith Lights',        icon:'👑', price:129, coins:null,
+     desc:'Best value — save 35%!',detail:'~$0.32/light.',category:'recharge',isCoinPack:true,amount:400},
+  ]
+};
+
 const DEVOTIONAL = {
   es:{verse:'"Porque yo sé los pensamientos que tengo acerca de vosotros, dice Jehová, pensamientos de paz y no de mal."',ref:'Jeremías 29:11',body:`<p>En tiempos de incertidumbre, el profeta Jeremías escribe estas palabras a un pueblo en exilio. No les promete un regreso inmediato — les promete algo más profundo: que los planes de Dios tienen una dirección.</p><br><p>La palabra hebrea "shalom" traducida como "paz" significa bienestar completo, integridad, totalidad. No es solo ausencia de problemas, sino la presencia de todo lo que nos hace florecer.</p><br><p>Hoy, si te encuentras en tu propio "exilio" — una situación que no elegiste, un período difícil — estas palabras son para ti también. Los planes no se cancelaron.</p>`},
   en:{verse:'"For I know the plans I have for you," declares the Lord, "plans to prosper you and not to harm you, plans to give you hope and a future."',ref:'Jeremiah 29:11',body:`<p>In times of uncertainty, the prophet Jeremiah writes these words to a people in exile, far from home. He doesn't promise an immediate return — he promises something deeper: that God's plans have a direction.</p><br><p>The Hebrew word "shalom" translated as "peace" means complete well-being, integrity, wholeness — not just absence of problems, but the presence of everything that makes us flourish.</p><br><p>Today, if you find yourself in your own "exile" — a situation you didn't choose — these words are for you too. The plans weren't cancelled.</p>`}
@@ -1161,9 +1555,67 @@ function navigate(page){
 // ══════════════════════════════════
 function buildApp(){
   document.getElementById('app').innerHTML=
-    buildCrisisModal()+buildToastEl()+buildLanding()+buildAuth('login')+buildAuth('signup')+buildAppShell()+buildPricingPage();
+    buildCrisisModal()+buildToastEl()+buildLanding()+buildPublicPages()+buildAuth('login')+buildAuth('signup')+buildAppShell()+buildPricingPage();
   attachGlobalEvents();
   navigate('landing');
+}
+
+// ══════════════════════════════════
+// PÁGINAS PÚBLICAS (Google Ads + SEO)
+// ══════════════════════════════════
+function buildPublicPages(){
+  const navBar=(id)=>`<nav class="nav"><a class="nav-logo" onclick="navigate('landing')">MYFATHER</a>
+    <div class="nav-links">
+      <button class="btn btn-ghost btn-sm" onclick="navigate('landing')">← ${state.lang==='es'?'Inicio':'Home'}</button>
+      <button class="btn btn-gold btn-sm" onclick="navigate('signup')">${t('signUp')}</button>
+    </div></nav>`;
+
+  const privHtml = `<div id="page-privacy-page" class="page">
+    ${navBar('privacy')}
+    <div style="max-width:780px;margin:0 auto;padding:60px 32px">${buildPrivacy()}</div>
+  </div>`;
+
+  const termsHtml = `<div id="page-terms-page" class="page">
+    ${navBar('terms')}
+    <div style="max-width:780px;margin:0 auto;padding:60px 32px">${buildTerms()}</div>
+  </div>`;
+
+  const contactHtml = `<div id="page-contact-page" class="page">
+    ${navBar('contact')}
+    <div style="max-width:680px;margin:0 auto;padding:60px 32px">
+      <div class="page-header"><h1>${t('contactTitle')}</h1><p>${t('contactSub')}</p></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+        <div class="input-wrap"><label class="input-label">${t('contactName')}</label><input class="input" id="pub-cnt-name" type="text"></div>
+        <div class="input-wrap"><label class="input-label">${t('contactEmail')}</label><input class="input" id="pub-cnt-email" type="email"></div>
+      </div>
+      <div class="input-wrap" style="margin-bottom:14px">
+        <label class="input-label">${t('contactType')}</label>
+        <select class="input select" id="pub-cnt-type">
+          <option>${t('contactTypeQ')}</option><option>${t('contactTypeBug')}</option>
+          <option>${t('contactTypeReport')}</option><option>${t('contactTypeChurch')}</option>
+        </select>
+      </div>
+      <div class="input-wrap" style="margin-bottom:20px">
+        <label class="input-label">${t('contactMsg')}</label>
+        <textarea class="input" id="pub-cnt-msg" rows="5" style="resize:vertical"></textarea>
+      </div>
+      <button class="btn btn-gold" onclick="sendPublicContact()">${t('contactSend')}</button>
+      <div id="pub-cnt-ok" style="display:none;margin-top:12px;color:#7ecfa0">✓ ${t('contactSent')}</div>
+    </div>
+  </div>`;
+
+  return privHtml + termsHtml + contactHtml;
+}
+
+async function sendPublicContact(){
+  const name  = document.getElementById('pub-cnt-name')?.value.trim();
+  const email = document.getElementById('pub-cnt-email')?.value.trim();
+  const type  = document.getElementById('pub-cnt-type')?.value;
+  const msg   = document.getElementById('pub-cnt-msg')?.value.trim();
+  if(!name||!email||!msg){ showToast(state.lang==='es'?'Completa todos los campos':'Fill all fields'); return; }
+  // TODO: Cloudflare Worker → Resend
+  document.getElementById('pub-cnt-ok').style.display='block';
+  showToast(t('contactSent'));
 }
 
 // ══════════════════════════════════
@@ -1219,6 +1671,11 @@ function buildLanding(){
 </section>
 <div style="text-align:center;padding:40px;border-top:1px solid rgba(201,151,58,0.1)">
   <div style="font-size:12px;color:rgba(245,240,232,0.25)" id="l-footer">${t('footer')}</div>
+  <div style="margin-top:12px;display:flex;gap:16px;justify-content:center;flex-wrap:wrap">
+    <a onclick="navigate('privacy-page')" style="font-size:11px;color:rgba(245,240,232,0.2);cursor:pointer" id="l-priv">${t('privacyTitle')}</a>
+    <a onclick="navigate('terms-page')" style="font-size:11px;color:rgba(245,240,232,0.2);cursor:pointer" id="l-terms">${t('termsTitle')}</a>
+    <a onclick="navigate('contact-page')" style="font-size:11px;color:rgba(245,240,232,0.2);cursor:pointer" id="l-contact">${t('contactTitle')}</a>
+  </div>
 </div>
 </div>`;
 }
@@ -1237,13 +1694,17 @@ function buildAuth(type){
       ${!isLogin?`<div class="input-wrap"><label class="input-label" id="al-name">${t('authName')}</label><input class="input" id="an-inp" type="text" placeholder="${t('authNamePh')}"></div>`:''}
       <div class="input-wrap"><label class="input-label" id="al-email-${type}">${t('authEmail')}</label><input class="input" id="ae-${type}" type="email" placeholder="${t('authEmailPh')}"></div>
       <div class="input-wrap"><label class="input-label" id="al-pass-${type}">${t('authPass')}</label><input class="input" id="ap-${type}" type="password" placeholder="${t('authPassPh')}"></div>
-      ${!isLogin?`<div class="input-wrap"><label class="input-label" id="al-type">${t('authAccountType')}</label><select class="select input" id="atype"><option id="at1">${t('authTypeAdult')}</option><option id="at2">${t('authTypeKids')}</option><option id="at3">${t('authTypeFamily')}</option><option id="at4">${t('authTypeChurch')}</option></select></div>`:''}
-      <div style="font-size:12px;color:rgba(201,151,58,0.5);text-align:center" id="al-hint-${type}">${t('authHint')}</div>
+      ${isLogin?`<div style="text-align:right;margin-top:-6px;margin-bottom:6px"><a style="font-size:12px;color:rgba(201,151,58,0.6);cursor:pointer" onclick="showForgotPass()">${t('forgotPass')}</a></div>`:''}
+      ${!isLogin?`<div class="input-wrap"><label class="input-label" id="al-type">${t('authAccountType')}</label><select class="select input" id="atype"><option id="at1" value="adult">${t('authTypeAdult')}</option><option id="at2" value="kids">${t('authTypeKids')}</option><option id="at3" value="family">${t('authTypeFamily')}</option><option id="at4" value="church">${t('authTypeChurch')}</option></select></div>`:''}
       <div id="ae-err-${type}" style="font-size:13px;color:#f08080;display:none;padding:6px 0"></div>
       <button class="btn btn-gold" style="width:100%;justify-content:center;margin-top:4px" onclick="handleAuth('${type}')" id="ab-${type}">${isLogin?t('authLoginBtn'):t('authSignupBtn')}</button>
       <button class="btn btn-ghost" style="width:100%;justify-content:center" onclick="navigate('${isLogin?'signup':'login'}')" id="as-${type}">${isLogin?t('authGoSignup'):t('authGoLogin')}</button>
     </div>
     <div style="text-align:center;margin-top:16px"><a style="font-size:13px;color:rgba(201,151,58,0.5);cursor:pointer" onclick="navigate('landing')" id="ab2-${type}">${t('authBack')}</a></div>
+    <div style="text-align:center;margin-top:12px;font-size:11px;color:rgba(245,240,232,0.2)">
+      <a onclick="navigateApp('privacy')" style="cursor:pointer;color:rgba(245,240,232,0.2)">${t('privacyTitle')}</a> ·
+      <a onclick="navigateApp('terms')" style="cursor:pointer;color:rgba(245,240,232,0.2)">${t('termsTitle')}</a>
+    </div>
   </div>
 </div></div>`;
 }
@@ -1252,29 +1713,69 @@ function buildAuth(type){
 // APP SHELL
 // ══════════════════════════════════
 function buildAppShell(){
-  return `<div id="page-app" class="page">
-<nav class="nav">
-  <a class="nav-logo" onclick="navigateApp('home')">MYFATHER <span id="app-tag">${t('appTagline')}</span></a>
+  const isK = state.mode==='kids';
+  const kidsStyle = isK ? `
+    background: linear-gradient(135deg, #6bbde3 0%, #78c87a 50%, #ffd166 100%) !important;
+    color: #1a1410 !important;
+  ` : '';
+  return `<div id="page-app" class="page" style="${kidsStyle}">
+<nav class="nav" style="${isK?'background:rgba(107,189,227,0.95);border-bottom:3px solid #ffd166;':'' }">
+  <a class="nav-logo" onclick="navigateApp('home')" style="${isK?'color:#1a4a8b;font-size:22px;':''}">
+    ${isK ? '⭐ MyFather Kids' : 'MYFATHER'} ${isK?'':'<span id="app-tag">'+t('appTagline')+'</span>'}
+  </a>
   <div class="nav-links">
-    <button class="btn btn-ghost btn-sm" onclick="toggleLang()" id="app-lang">🌐 EN</button>
-    <button class="btn btn-ghost btn-sm" onclick="toggleMode()" id="app-mode">${t('switchToKids')}</button>
-    <button class="btn btn-ghost btn-sm" onclick="showCrisis()" id="app-crisis">${t('emergencyBtn')}</button>
-    <button class="btn btn-outline btn-sm" onclick="signOut()" id="app-so">${t('signOut')}</button>
+    <button class="btn btn-ghost btn-sm" onclick="toggleLang()" id="app-lang" style="${isK?'color:#1a4a8b;border-color:#1a4a8b;':''}">🌐 ${state.lang==='es'?'EN':'ES'}</button>
+    <button class="btn btn-ghost btn-sm" onclick="showCrisis()" id="app-crisis" style="${isK?'color:#8b1a1a;border-color:#8b1a1a;':''}">🆘</button>
+    <button class="btn ${isK?'':'btn-outline'} btn-sm" onclick="signOut()" id="app-so" style="${isK?'background:#1a4a8b;color:white;':''}">
+      ${t('signOut')}
+    </button>
   </div>
 </nav>
 <div class="dashboard">
-  <aside class="sidebar" id="sidebar">${buildSidebar()}</aside>
+  <aside class="sidebar" id="sidebar" style="${isK?'background:rgba(107,189,227,0.15);border-right:2px solid rgba(255,209,102,0.4);':''}">
+    ${buildSidebar()}
+  </aside>
   <div id="main-content" class="main-content"></div>
 </div>
 </div>`;
 }
 
 function buildSidebar(){
-  const items=[['home',t('navHome'),'home'],['chat',t('navChat'),'chat'],['lessons',t('navLessons'),'book'],['devotional',t('navDevotional'),'sun'],['reading',t('navReading'),'calendar'],['quiz',t('navQuiz'),'quiz'],['haven',t('navHaven'),'heart'],['churches',t('navChurches'),'church']];
-  return `<div class="sidebar-section" id="sb-s1">${t('navSectionFaith')}</div>
-  ${items.map(([pg,label,i])=>`<button class="sidebar-item" data-page="${pg}" onclick="navigateApp('${pg}')">${ic(i)} <span>${label}</span>${pg==='chat'?'<span class="sidebar-badge">IA</span>':''}</button>`).join('')}
-  <div class="sidebar-section" id="sb-s2">${t('navSectionMore')}</div>
-  <button class="sidebar-item" data-page="pricing-page" onclick="navigate('pricing-page')">${ic('gift')} <span id="sb-pricing">${t('navPricing')}</span></button>`;
+  const isK = state.mode==='kids';
+  const kidsItems=[
+    ['home',   isK?'🏠 Inicio':'🏠 Home',    'home'],
+    ['chat',   isK?'🌟 Pregúntale a Dios':'💬 Tutor IA','chat'],
+    ['lessons',isK?'📖 Historias Bíblicas':'📚 Lecciones','book'],
+    ['quiz',   isK?'🎯 Jugar Quiz':'🎯 Quiz Bíblico','quiz'],
+    ['reading',isK?'📅 Mi Lectura':'📅 Plan de Lectura','calendar'],
+  ];
+  const adultItems=[
+    ['home',       t('navHome'),       'home'],
+    ['chat',       t('navChat'),       'chat'],
+    ['lessons',    t('navLessons'),    'book'],
+    ['devotional', t('navDevotional'), 'sun'],
+    ['reading',    t('navReading'),    'calendar'],
+    ['quiz',       t('navQuiz'),       'quiz'],
+    ['haven',      t('navHaven'),      'heart'],
+    ['churches',   t('navChurches'),   'church'],
+  ];
+  const items = isK ? kidsItems : adultItems;
+  const kidsC = isK ? 'color:#1a4a8b;font-weight:600;' : '';
+  return `
+  <div class="sidebar-section" style="${kidsC}">${isK?(state.lang==='es'?'🌈 Mi Camino':'🌈 My Path'):t('navSectionFaith')}</div>
+  ${items.map(([pg,label,i])=>`
+    <button class="sidebar-item" data-page="${pg}" onclick="navigateApp('${pg}')" style="${isK?'border-radius:14px;margin-bottom:4px;':''}">
+      ${ic(i)} <span>${label}</span>
+      ${pg==='chat'?`<span class="sidebar-badge" style="${isK?'background:#ff8c69;':''}">IA</span>`:''}
+    </button>`).join('')}
+  <div class="sidebar-section" style="${kidsC}">${isK?(state.lang==='es'?'✨ Mi Cuenta':'✨ My Account'):t('navSectionMore')}</div>
+  <button class="sidebar-item" data-page="store" onclick="navigateApp('store')">
+    ${ic('gift')} <span>${t('navStore')}</span>
+    <span style="font-size:10px;background:rgba(201,151,58,0.2);color:var(--gold);padding:2px 6px;border-radius:8px;margin-left:auto">✨</span>
+  </button>
+  <button class="sidebar-item" data-page="pricing-page" onclick="navigate('pricing-page')">
+    ${ic('star')} <span>${t('navPricing')}</span>
+  </button>`;
 }
 
 // ══════════════════════════════════
@@ -1300,33 +1801,96 @@ function buildPricingPage(){
 }
 
 function getPricingPlans(){
-  const l=state.lang;
   return [
-    {key:'free',  name:{es:'Gratuito',en:'Free'},     price:'0',  period:{es:'para siempre',en:'forever'},
-     features:{es:['Tutor IA (20 mensajes/mes)','Devocional diario','3 lecciones por mes','Plan de lectura básico'],en:['AI Tutor (20 messages/month)','Daily devotional','3 lessons per month','Basic reading plan']},
-     btn:{es:'Empezar gratis',en:'Start free'},featured:false},
-    {key:'personal',name:{es:'Personal',en:'Personal'},price:'7', period:{es:'/mes · $70/año',en:'/month · $70/year'},
-     features:{es:['Tutor IA ilimitado','Todas las lecciones','Quiz completo','Haven — acompañamiento','Sin anuncios'],en:['Unlimited AI Tutor','All lessons','Full quiz','Haven — accompaniment','No ads']},
-     btn:{es:'Prueba gratis 7 días',en:'Free trial 7 days'},featured:true},
-    {key:'family', name:{es:'Familia',en:'Family'},    price:'14', period:{es:'/mes · hasta 5',en:'/month · up to 5'},
-     features:{es:['Todo Personal ×5','Panel de padres','Modo niños','Reportes familiares'],en:['Everything Personal ×5','Parent dashboard','Kids mode','Family reports']},
+    {key:'free', name:{es:'Gratuito',en:'Free'}, price:'0', period:{es:'para siempre',en:'forever'},
+     features:{
+       es:['Tutor IA (10 msg/mes)','Versículo y devocional diario','1 lección por mes','3 quizzes por mes','Acceso a Haven básico'],
+       en:['AI Tutor (10 msg/month)','Daily verse & devotional','1 lesson per month','3 quizzes per month','Basic Haven access']},
+     btn:{es:'Empezar gratis',en:'Start free'},featured:false,
+     limits:{es:'⚠️ Muy limitado — ideal para probar',en:'⚠️ Very limited — ideal to try'}},
+    {key:'basic', name:{es:'Fe',en:'Faith'}, price:'3', period:{es:'/mes · $29/año',en:'/month · $29/year'},
+     features:{
+       es:['Tutor IA (60 msg/mes)','5 lecciones por mes','Quizzes ilimitados','Plan de lectura completo','20 Luces de Fe/mes'],
+       en:['AI Tutor (60 msg/month)','5 lessons per month','Unlimited quizzes','Full reading plan','20 Faith Lights/month']},
+     btn:{es:'Comenzar — 7 días gratis',en:'Start — 7 days free'},featured:false},
+    {key:'premium', name:{es:'Gracia',en:'Grace'}, price:'6', period:{es:'/mes · $55/año',en:'/month · $55/year'},
+     features:{
+       es:['Tutor IA ilimitado','Todas las lecciones','Haven completo','Sin anuncios','100 Luces de Fe/mes','Recordatorios diarios'],
+       en:['Unlimited AI Tutor','All lessons','Full Haven','No ads','100 Faith Lights/month','Daily reminders']},
+     btn:{es:'Prueba 7 días gratis',en:'Free trial 7 days'},featured:true},
+    {key:'family', name:{es:'Familia',en:'Family'}, price:'10', period:{es:'/mes · hasta 6',en:'/month · up to 6'},
+     features:{
+       es:['Todo Gracia ×6 miembros','Panel de padres','Modo niños dedicado','250 Luces/mes','Reporte familiar'],
+       en:['Everything Grace ×6 members','Parent dashboard','Kids mode','250 Lights/month','Family report']},
      btn:{es:'Plan familiar',en:'Family plan'},featured:false},
-    {key:'church', name:{es:'Iglesia',en:'Church'},    price:'49', period:{es:'/mes · ilimitado',en:'/month · unlimited'},
-     features:{es:['Todo Familia ilimitado','Panel admin','Soporte dedicado','Reporte mensual'],en:['Everything Family unlimited','Admin panel','Dedicated support','Monthly report']},
-     btn:{es:'Contactar ventas',en:'Contact sales'},featured:false},
+    {key:'church', name:{es:'Iglesia',en:'Church'}, price:'25', period:{es:'/mes · ilimitado',en:'/month · unlimited'},
+     features:{
+       es:['Todo Familia ilimitado','Panel admin','Soporte prioritario','Reportes mensuales','Marca blanca'],
+       en:['Everything Family unlimited','Admin panel','Priority support','Monthly reports','White label']},
+     btn:{es:'Contactar',en:'Contact us'},featured:false},
   ];
 }
 
-function renderPricingCards(plans,compact){
-  const cols=compact?'repeat(auto-fit,minmax(190px,1fr))':'repeat(auto-fit,minmax(220px,1fr))';
+const MP_PUBLIC_KEY = 'APP_USR-c3dfb65c-5524-4042-816e-1ab4b89f58a7';
+
+async function handleCheckout(plan){
+  if(!state.user && plan!=='free'){ navigate('signup'); return; }
+  if(plan==='free'){ showToast(state.lang==='es'?'¡Ya tienes acceso gratuito!':'You already have free access!'); return; }
+  if(plan==='church'){ navigateApp('contact'); return; }
+
+  if(CF_WORKER_URL){
+    showToast(state.lang==='es'?'Conectando con MercadoPago...':'Connecting to MercadoPago...');
+    try {
+      const r = await fetch(`${CF_WORKER_URL}/mp/create-pref`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ plan, user_id: state.user.id, lang: state.lang })
+      });
+      const { init_point, sandbox_init_point } = await r.json();
+      // En desarrollo usa sandbox, en producción usa init_point
+      window.location.href = sandbox_init_point || init_point;
+    } catch(e){
+      showToast(state.lang==='es'?'Error conectando a MercadoPago':'MercadoPago connection error');
+    }
+  } else {
+    // Mientras el Worker no esté configurado
+    showToast(state.lang==='es'?'Pagos disponibles muy pronto en myfather.app':'Payments coming very soon to myfather.app');
+  }
+}
+
+async function buyItem(itemId){
+  if(!state.user){ navigate('login'); return; }
+  const items = STORE_ITEMS[state.lang]||STORE_ITEMS.es;
+  const item = items.find(i=>i.id===itemId);
+  if(!item) return;
+
+  if(CF_WORKER_URL){
+    showToast(state.lang==='es'?`Procesando: ${item.name}...`:`Processing: ${item.name}...`);
+    try {
+      const r = await fetch(`${CF_WORKER_URL}/mp/store-checkout`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ item_id: itemId, user_id: state.user.id })
+      });
+      const { init_point } = await r.json();
+      window.location.href = init_point;
+    } catch(e){
+      showToast(state.lang==='es'?'Error al procesar':'Processing error');
+    }
+  } else {
+    showToast(state.lang==='es'?`Tienda disponible muy pronto — ${item.name}`:`Store coming soon — ${item.name}`);
+  }
+}
+
+function renderPricingCards(plans, compact){
+  const cols = compact ? 'repeat(auto-fit,minmax(185px,1fr))' : 'repeat(auto-fit,minmax(210px,1fr))';
   return `<div style="display:grid;grid-template-columns:${cols};gap:16px">
-  ${plans.map(p=>`<div class="pricing-card ${p.featured?'featured':''}">
+  ${plans.map(p=>`<div class="pricing-card ${p.featured?'featured':''}" style="${p.key==='free'?'opacity:0.75;':''}">
     ${p.featured?`<div class="pricing-popular">${t('pricingMostPopular')}</div>`:''}
     <div class="pricing-name">${p.name[state.lang]||p.name.es}</div>
     <div class="pricing-price">$${p.price}<span> USD</span></div>
-    <div class="pricing-period">${(p.period[state.lang]||p.period.es)}</div>
+    <div class="pricing-period">${p.period[state.lang]||p.period.es}</div>
+    ${p.limits?`<div style="font-size:11px;color:rgba(255,160,100,0.85);margin-bottom:8px">${p.limits[state.lang]||p.limits.es}</div>`:''}
     <div class="pricing-features">${(p.features[state.lang]||p.features.es).map(f=>`<div class="pricing-feature"><span class="pricing-check">✓</span>${f}</div>`).join('')}</div>
-    <button class="btn ${p.featured?'btn-gold':'btn-outline'}" style="width:100%;justify-content:center" onclick="handleCheckout('${p.key}')">${(p.btn[state.lang]||p.btn.es)}</button>
+    <button class="btn ${p.featured?'btn-gold':'btn-outline'}" style="width:100%;justify-content:center;margin-top:12px" onclick="handleCheckout('${p.key}')">${p.btn[state.lang]||p.btn.es}</button>
   </div>`).join('')}
   </div>`;
 }
@@ -1338,7 +1902,7 @@ let _currentPage = 'home';
 function navigateApp(pg){
   if(!state.user){ navigate('login'); return; }
   _currentPage=pg;
-  const map={home:buildHome,chat:buildChat,lessons:buildLessons,devotional:buildDevotional,reading:buildReading,quiz:buildQuiz,haven:buildHaven,churches:buildChurches};
+  const map={home:buildHome,chat:buildChat,lessons:buildLessons,devotional:buildDevotional,reading:buildReading,quiz:buildQuiz,haven:buildHaven,churches:buildChurches,store:buildStore,contact:buildContact,privacy:buildPrivacy,terms:buildTerms};
   const mc=document.getElementById('main-content');
   if(!mc) return;
   mc.innerHTML=(map[pg]||buildHome)();
@@ -1407,7 +1971,14 @@ function buildChat(){
         <button class="chat-send" id="chat-send">${ic('send')}</button>
       </div>
     </div>
-    <div class="chat-disclaimer">${t('chatDisclaimer')}</div>
+    <div class="chat-disclaimer">
+      ${t('chatDisclaimer')}
+      ${state.user && ['free','basic'].includes(state.user.plan||'free') ?
+        `<span style="margin-left:8px;color:${getMsgRemaining()<=3?'rgba(232,89,60,0.8)':'rgba(245,240,232,0.3)'}">
+          · ${getMsgRemaining()} ${state.lang==='es'?'msgs restantes':'msgs left'}
+          ${getMsgRemaining()<=3?` <a onclick="navigate('pricing-page')" style="color:var(--gold);cursor:pointer">${state.lang==='es'?'Actualizar →':'Upgrade →'}</a>`:''}
+        </span>` : ''}
+    </div>
   </div>
 </div>`;
 }
@@ -1418,13 +1989,145 @@ function setupChatEvents(){
 }
 
 let chatBusy=false;
+
+// ══════════════════════════════════════════════════════
+// SISTEMA HÍBRIDO DE RESPUESTAS — 3 capas
+// Capa 1: Respuestas instantáneas (gratis, sin API)
+// Capa 2: Claude Haiku (barato, preguntas simples)
+// Capa 3: Claude Sonnet (profundo, preguntas teológicas)
+// ══════════════════════════════════════════════════════
+
 const SUICIDE_KW=['suicid','matarme','quitarme la vida','no quiero vivir','kill myself','end my life','dont want to live','hurt myself','hacerme daño','quiero morir'];
 const ABUSE_KW=['me golpea','me pega','me toca','me hace daño','me abusa','abuse','hitting me','touching me','hurts me','me viola','rape','violated','molest','robé','robamos','ilegal','illegal'];
+
+// Patrones simples → respuesta instantánea sin API
+const INSTANT_MAP = {
+  es: [
+    { p:/^(hola|hey|buenos días|buenas tardes|buenas noches|hi|ey)\b/i,
+      r:(n)=>`¡Hola${n?' '+n:''}! 😊 Estoy aquí para acompañarte en tu fe. ¿En qué te puedo ayudar hoy?` },
+    { p:/^(gracias|thank you|thanks|muchas gracias)\b/i,
+      r:()=>`Con mucho gusto. Recuerda: *"Todo lo que hagáis, hacedlo de corazón."* — Colosenses 3:23 🙏` },
+    { p:/^(ok|okay|bien|perfecto|entendido|👍|amén)\b/i,
+      r:()=>`¡Amén! ¿Hay algo más en lo que pueda ayudarte hoy?` },
+    { p:/quién (eres|es dios|es jesús)|who are you/i,
+      r:()=>`Soy el Tutor Bíblico de MyFather — tu guía en la fe, impulsado por inteligencia artificial. Puedo responder preguntas sobre la Biblia, teología, historia cristiana y acompañarte en momentos de duda. ¿Qué quieres explorar?` },
+    { p:/cuántos libros|how many books|libros (tiene|hay en) la biblia/i,
+      r:()=>`La Biblia tiene **66 libros** en el canon protestante (39 en el Antiguo Testamento y 27 en el Nuevo Testamento). Las Biblias católicas incluyen además 7 libros deuterocanónicos. ¿Quieres saber más sobre alguno en particular?` },
+    { p:/versículo (favorito|del día)|verse of the day/i,
+      r:()=>`✦ *"Porque yo sé los pensamientos que tengo acerca de vosotros, pensamientos de paz y no de mal, para daros el fin que esperáis."* — Jeremías 29:11\n\nUno de los versículos más amados de la Escritura. ¿Te gustaría reflexionar sobre él?` },
+    { p:/padre nuestro|oración|cómo (orar|rezar|puedo orar)/i,
+      r:()=>`La oración es simplemente una conversación honesta con Dios. Jesús enseñó el Padre Nuestro como modelo en Mateo 6:9-13. No necesitas palabras perfectas — Dios escucha el corazón. ¿Quieres que te explique los elementos de una oración o el significado del Padre Nuestro?` },
+    { p:/genesis|génesis|creación|creation/i,
+      r:()=>`Génesis es el primer libro de la Biblia y significa *"origen"* o *"comienzo"*. Cubre la creación del mundo, la caída del hombre, el diluvio de Noé y las historias de los patriarcas Abraham, Isaac, Jacob y José. ¿Qué parte de Génesis te interesa explorar?` },
+    { p:/jesús|jesucristo|jesus christ/i,
+      r:()=>`Jesucristo es la figura central del cristianismo — el Hijo de Dios que se hizo hombre. Vivió en Israel en el siglo I, enseñó el amor al prójimo, murió en la cruz y resucitó al tercer día. *"Porque tanto amó Dios al mundo que dio a su único Hijo"* — Juan 3:16. ¿Qué aspecto de la vida de Jesús te gustaría profundizar?` },
+  ],
+  en: [
+    { p:/^(hello|hey|hi|good morning|good evening|howdy)\b/i,
+      r:(n)=>`Hello${n?' '+n:''}! 😊 I'm here to guide you in your faith journey. What would you like to explore today?` },
+    { p:/^(thanks|thank you|ty|thx|amen)\b/i,
+      r:()=>`You're welcome! *"Whatever you do, do it heartily."* — Colossians 3:23 🙏` },
+    { p:/^(ok|okay|got it|perfect|👍)\b/i,
+      r:()=>`Amen! Is there anything else I can help you with today?` },
+    { p:/how many books|books in the bible/i,
+      r:()=>`The Bible has **66 books** in the Protestant canon — 39 in the Old Testament and 27 in the New Testament. Catholic Bibles include 7 additional deuterocanonical books. Want to learn about any specific book?` },
+  ]
+};
+
+// Palabras que indican complejidad → DeepSeek (modelo más profundo y barato)
+const COMPLEX_KW = [
+  'predestinación','predestination','trinidad','trinity','salvación','salvation',
+  'libre albedrío','free will','sufrimiento','suffering','por qué dios','why does god',
+  'contradicción','contradiction','diferencia entre','difference between',
+  'interpreta','interpret','significado de','meaning of','explícame','explain to me',
+  'teología','theology','escatología','eschatology','apocalipsis','revelation',
+  'comparar','compare','denomina','denomin','bautismo','baptism','eucaristía','eucharist',
+  'demonio','devil','infierno','hell','ángel','angel','milagro','miracle',
+];
+
+// ── Cloudflare Worker URL ─────────────────────────────
+// Una vez que subas el worker a Cloudflare, pon aquí la URL
+// Ejemplo: 'https://myfather-api.TU_USUARIO.workers.dev'
+const CF_WORKER_URL = 'https://myfather-api.mirandavilla341.workers.dev';
+
+// DeepSeek directo (fallback temporal mientras configuras el Worker)
+// ⚠️ Mover al Worker en producción para ocultar la key
+const DEEPSEEK_KEY_TEMP = 'sk-4491566fc184475cba61e3e8b35f7109';
+
+async function callAI(txt, useDeep){
+  const lng = state.lang==='en' ? 'English' : 'Spanish (español)';
+  const isK = state.mode==='kids';
+  const maxTok = useDeep ? 700 : 250;
+
+  const sysKids = `You are a friendly biblical assistant for children ages 4-12. Always respond in ${lng}. Use simple warm language and occasional emojis ⭐🙏. NEVER share violent, sexual or inappropriate content. If a child mentions danger, calmly tell them to talk to a trusted adult. Max 2 short paragraphs.`;
+  const sysDeep = `You are a wise Christian biblical theologian and tutor — the AI of MyFather platform. Always respond in ${lng}. Cite Bible verses with exact references (Book Chapter:Verse). Answer with depth, nuance and compassion. If user mentions suicidal thoughts, respond with love and include crisis resources immediately. Max 300 words.`;
+  const sysFast = `You are a warm Christian biblical assistant. Always respond in ${lng}. Be helpful and concise. Cite 1 relevant Bible verse. Max 100 words. No lengthy preamble.`;
+
+  const systemPrompt = isK ? sysKids : (useDeep ? sysDeep : sysFast);
+  const messages = [...state.chatHistory.slice(-6), { role:'user', content: txt }];
+
+  // ── Si el Worker está configurado, todo pasa por él (seguro) ──
+  if(CF_WORKER_URL){
+    const r = await fetch(`${CF_WORKER_URL}/ai/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ layer: useDeep ? 3 : 2, system: systemPrompt, messages, max_tokens: maxTok })
+    });
+    const d = await r.json();
+    if(d.error) throw new Error(d.error);
+    return { text: d.content?.[0]?.text || '...', layer: useDeep ? 3 : 2 };
+  }
+
+  // ── Fallback: llamada directa mientras configuras el Worker ──
+  if(useDeep){
+    // Capa 3: DeepSeek directo (temporal)
+    const r = await fetch('https://api.deepseek.com/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${DEEPSEEK_KEY_TEMP}` },
+      body: JSON.stringify({
+        model: 'deepseek-chat', max_tokens: maxTok,
+        messages: [{ role: 'system', content: systemPrompt }, ...messages]
+      })
+    });
+    const d = await r.json();
+    if(d.error) throw new Error(d.error.message);
+    return { text: d.choices?.[0]?.message?.content || '...', layer: 3 };
+  } else {
+    // Capa 2: DeepSeek también (sin Anthropic key por ahora)
+    const r = await fetch('https://api.deepseek.com/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${DEEPSEEK_KEY_TEMP}` },
+      body: JSON.stringify({
+        model: 'deepseek-chat', max_tokens: maxTok,
+        messages: [{ role: 'system', content: systemPrompt }, ...messages]
+      })
+    });
+    const d = await r.json();
+    if(d.error) throw new Error(d.error.message);
+    return { text: d.choices?.[0]?.message?.content || '...', layer: 2 };
+  }
+}
+
 function detectCrisis(txt){
   const l=txt.toLowerCase();
   if(SUICIDE_KW.some(k=>l.includes(k))) return 'suicide';
   if(ABUSE_KW.some(k=>l.includes(k)))   return 'abuse';
   return null;
+}
+
+// Determina qué capa usar
+function routeMessage(txt) {
+  const l = txt.toLowerCase().trim();
+  const lang = state.lang === 'en' ? 'en' : 'es';
+  // Capa 1: respuesta instantánea
+  const patterns = INSTANT_MAP[lang] || INSTANT_MAP.es;
+  for(const entry of patterns){
+    if(entry.p.test(l)) return { layer:1, response: entry.r(state.user?.name||'') };
+  }
+  // Capa 3: DeepSeek para preguntas profundas
+  if(txt.length > 120 || COMPLEX_KW.some(k => l.includes(k))) return { layer:3 };
+  // Capa 2: Haiku para todo lo demás
+  return { layer:2 };
 }
 
 async function sendChat(){
@@ -1434,30 +2137,78 @@ async function sendChat(){
   inp.value='';
   const msgs=document.getElementById('chat-msgs');
   if(!msgs) return;
-  const isK=state.mode==='kids';
+
   msgs.innerHTML+=`<div class="message user"><div class="msg-avatar">👤</div><div><div class="msg-bubble">${esc(txt)}</div></div></div>`;
+
+  // Crisis check siempre primero
   const cr=detectCrisis(txt);
-  if(cr==='suicide'){msgs.innerHTML+=crisisMsg();msgs.scrollTop=msgs.scrollHeight;return;}
-  if(cr==='abuse')  {msgs.innerHTML+=abuseMsg(); msgs.scrollTop=msgs.scrollHeight;return;}
-  const lid='l'+Date.now();
-  msgs.innerHTML+=`<div class="message ai" id="${lid}"><div class="msg-avatar">✝️</div><div><div class="msg-bubble"><div class="loading-dots"><span></span><span></span><span></span></div></div></div></div>`;
-  msgs.scrollTop=msgs.scrollHeight; chatBusy=true;
-  const lng=state.lang==='en'?'English':'Spanish (español)';
-  const sys=isK
-    ?`You are a friendly biblical assistant for children ages 4-12. Always respond in ${lng}. Speak simply and warmly, use occasional emojis. NEVER share violent, sexual or inappropriate content. If a child mentions abuse or danger, tell them calmly to talk to a trusted adult. Keep responses short (max 3 paragraphs).`
-    :`You are a wise and compassionate Christian biblical tutor. Always respond in ${lng}. You have deep knowledge of theology, biblical history, and Christian tradition. Cite Bible verses when relevant with exact references (Book Chapter:Verse). If the user mentions suicidal thoughts, respond with love and compassion and include crisis help immediately. If they mention abuse or illegal situations, accompany them carefully. Keep responses under 250 words. You are the MyFather AI Tutor.`;
-  try{
-    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,system:sys,messages:[...state.chatHistory.slice(-6),{role:'user',content:txt}]})});
-    const d=await r.json();
-    const reply=d.content?.[0]?.text||'...';
+  if(cr==='suicide'){
+    logCrisis('suicide', txt);
+    msgs.innerHTML+=crisisMsg(); msgs.scrollTop=msgs.scrollHeight; return;
+  }
+  if(cr==='abuse'){
+    logCrisis('abuse', txt);
+    msgs.innerHTML+=abuseMsg(); msgs.scrollTop=msgs.scrollHeight; return;
+  }
+
+  // Routing híbrido
+  const route = routeMessage(txt);
+
+  // Capa 1: instantánea, sin API — no cuenta contra el límite
+  if(route.layer === 1){
+    const reply = route.response;
     state.chatHistory.push({role:'user',content:txt},{role:'assistant',content:reply});
-    document.getElementById(lid)?.remove();
-    // Extract verse quote if present
-    const vm=reply.match(/["""]([^"""]{10,})["""]\s*[—–-]\s*(\S[^\n]{0,50})/);
+    saveChatMessage(txt, reply);
+    const vm=reply.match(/\*([^*]{10,})\*\s*[—–-]\s*(\S[^\n]{0,50})/);
     let main=esc(reply),vhtml='';
     if(vm){vhtml=`<div class="msg-verse">${esc(vm[1])}<div class="msg-ref">— ${esc(vm[2])}</div></div>`;main=esc(reply.replace(vm[0],'')).trim();}
     msgs.innerHTML+=`<div class="message ai"><div class="msg-avatar">✝️</div><div><div class="msg-bubble">${main}${vhtml}</div></div></div>`;
-  }catch{
+    msgs.scrollTop=msgs.scrollHeight;
+    return;
+  }
+
+  // Capas 2 y 3 — verificar límite del plan
+  if(!canSendMsg()){
+    const lim = getMsgLimit();
+    const isEs = state.lang==='es';
+    const upgradeBtn = `<button class="btn btn-gold btn-sm" style="margin-top:10px" onclick="navigate('pricing-page')">
+      ${isEs?'Ver planes →':'See plans →'}
+    </button>`;
+    msgs.innerHTML+=`<div class="message ai"><div class="msg-avatar">✝️</div><div><div class="msg-bubble">
+      ${isEs
+        ? `Has usado tus <strong>${lim} mensajes gratuitos</strong> de este mes. Puedes comprar mensajes adicionales en la tienda o actualizar tu plan para continuar.`
+        : `You've used your <strong>${lim} free messages</strong> this month. Buy extra messages in the store or upgrade your plan to continue.`}
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        ${upgradeBtn}
+        <button class="btn btn-outline btn-sm" onclick="navigateApp('store')">
+          ${isEs?'Tienda de mensajes ✨':'Message store ✨'}
+        </button>
+      </div>
+    </div></div></div>`;
+    msgs.scrollTop=msgs.scrollHeight;
+    return;
+  }
+
+  // Capas 2 y 3: necesitan API
+  const lid='l'+Date.now();
+  const layerLabel = route.layer===3
+    ? `<span style="font-size:9px;opacity:0.4;margin-left:6px">⚡ Deep</span>`
+    : `<span style="font-size:9px;opacity:0.4;margin-left:6px">⚡ Fast</span>`;
+  msgs.innerHTML+=`<div class="message ai" id="${lid}"><div class="msg-avatar">✝️</div><div><div class="msg-bubble"><div class="loading-dots"><span></span><span></span><span></span></div></div></div></div>`;
+  msgs.scrollTop=msgs.scrollHeight; chatBusy=true;
+
+  try{
+    const result = await callAI(txt, route.layer === 3);
+    const reply = result.text;
+    state.chatHistory.push({role:'user',content:txt},{role:'assistant',content:reply});
+    state.msgThisMonth++; // incrementar contador
+    saveChatMessage(txt, reply);
+    document.getElementById(lid)?.remove();
+    const vm=reply.match(/["""]([^"""]{10,})["""]\s*[—–-]\s*(\S[^\n]{0,50})/);
+    let main=esc(reply),vhtml='';
+    if(vm){vhtml=`<div class="msg-verse">${esc(vm[1])}<div class="msg-ref">— ${esc(vm[2])}</div></div>`;main=esc(reply.replace(vm[0],'')).trim();}
+    msgs.innerHTML+=`<div class="message ai"><div class="msg-avatar">✝️</div><div><div class="msg-bubble">${main}${vhtml}${layerLabel}</div></div></div>`;
+  }catch(e){
     document.getElementById(lid)?.remove();
     msgs.innerHTML+=`<div class="message ai"><div class="msg-avatar">✝️</div><div><div class="msg-bubble" style="color:rgba(245,240,232,0.5)">${t('chatError')}</div></div></div>`;
   }
@@ -1690,26 +2441,78 @@ function buildCrisisModal(){
 function buildToastEl(){return `<div class="toast" id="toast"></div>`;}
 
 // ══════════════════════════════════
-// AUTH HANDLERS
+// AUTH HANDLERS (Supabase real)
 // ══════════════════════════════════
-function handleAuth(type){
-  const email=document.getElementById(`ae-${type}`)?.value.trim();
-  const pass =document.getElementById(`ap-${type}`)?.value.trim();
-  const err  =document.getElementById(`ae-err-${type}`);
-  if(!email||!pass||pass.length<6){if(err){err.style.display='block';err.textContent=t('authLoginError');} return;}
-  if(type==='login'){
-    state.user={name:email.split('@')[0].charAt(0).toUpperCase()+email.split('@')[0].slice(1),email};
-    navigate('app'); navigateApp('home');
-  }else{
-    const name=document.getElementById('an-inp')?.value.trim();
-    if(!name){if(err){err.style.display='block';err.textContent=t('authLoginError');} return;}
-    state.user={name,email};
-    showToast(t('authSignupSuccess'));
-    navigate('app'); navigateApp('home');
+async function handleAuth(type){
+  const email = document.getElementById(`ae-${type}`)?.value.trim();
+  const pass  = document.getElementById(`ap-${type}`)?.value.trim();
+  const err   = document.getElementById(`ae-err-${type}`);
+  const btn   = document.getElementById(`ab-${type}`);
+  if(!email || !pass || pass.length < 6){
+    if(err){ err.style.display='block'; err.textContent=t('authLoginError'); } return;
+  }
+  if(btn){ btn.disabled=true; btn.textContent='...'; }
+  try {
+    if(type === 'login'){
+      await supaLogin(email, pass);
+      const uid = (await db.auth.getUser()).data.user.id;
+      const profile = await loadProfile(uid);
+      state.user = {
+        id:    uid,
+        email,
+        name:  profile?.full_name || email.split('@')[0],
+        plan:  profile?.plan || 'free',
+        streak: profile?.streak || 0,
+        account_type: profile?.account_type || 'adult',
+        coins: profile?.coins || 0,
+      };
+      state.streak = state.user.streak;
+      await loadMsgCount(uid);
+      navigate('app'); navigateApp('home');
+    } else {
+      const name        = document.getElementById('an-inp')?.value.trim();
+      const accountType = document.getElementById('atype')?.value || 'adult';
+      if(!name){ if(err){ err.style.display='block'; err.textContent=t('authLoginError'); } return; }
+      await supaSignUp(email, pass, name, accountType);
+      showToast(t('authSignupSuccess') + ' — ' + (state.lang==='en'?'Check your email!':'¡Revisa tu email!'));
+      // auto-login after signup
+      try {
+        await supaLogin(email, pass);
+        const uid = (await db.auth.getUser()).data.user.id;
+        await loadProfile(uid);
+        state.user = { id: uid, email, name, plan:'free', streak:0, account_type: accountType, coins:0 };
+        state.msgThisMonth = 0;
+        // Email de bienvenida via Worker → Resend (no-blocking)
+        if(CF_WORKER_URL){
+          fetch(`${CF_WORKER_URL}/welcome`, {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ email, name, lang: state.lang, plan:'free' })
+          }).catch(()=>{});
+        }
+        navigate('app'); navigateApp('home');
+      } catch { navigate('login'); }
+    }
+  } catch(e){
+    if(err){
+      err.style.display='block';
+      err.textContent = e.message || t('authLoginError');
+    }
+  } finally {
+    if(btn){ btn.disabled=false; btn.textContent=type==='login'?t('authLoginBtn'):t('authSignupBtn'); }
   }
 }
-function signOut(){state.user=null;state.chatHistory=[];navigate('landing');}
-function enterMode(m){state.mode=m;document.body.classList.toggle('kids-mode',m==='kids');if(!state.user){navigate('login');}else{navigate('app');navigateApp('home');}}
+
+async function signOut(){
+  await supaLogout();
+  state.chatHistory=[];
+  navigate('landing');
+}
+
+function enterMode(m){
+  state.mode=m;
+  document.body.classList.toggle('kids-mode',m==='kids');
+  if(!state.user){ navigate('login'); } else { navigate('app'); navigateApp('home'); }
+}
 
 // ══════════════════════════════════
 // TOGGLES
@@ -1772,11 +2575,227 @@ function rebuildUI(){
 }
 
 // ══════════════════════════════════
-// CHECKOUT
+// TIENDA — Luces de Fe
 // ══════════════════════════════════
-function handleCheckout(plan){
-  if(!state.user&&plan!=='free'){navigate('signup');return;}
-  showToast(t('toastCheckout'));
+function buildStore(){
+  const isK = state.mode==='kids';
+  const items = (STORE_ITEMS[state.lang]||STORE_ITEMS.es);
+  const coinBalance = state.user?.coins || 0;
+  const categories = isK
+    ? ['quiz','chat','streak','recharge','recarga']
+    : ['racha','streak','bonus','quiz','chat','lecciones','recharge','recarga'];
+  const catLabels = {
+    racha:'⚔️ Protege tu Racha', streak:'⚔️ Protect Streak',
+    bonus:'⚡ Bonos de XP', lecciones:'📚 Lecciones',
+    quiz:'🎯 Quiz Power', chat:'💬 Mensajes IA',
+    recarga:'✨ Recargar Luces', recharge:'✨ Recharge Lights'
+  };
+  const grouped = {};
+  items.forEach(item=>{
+    if(!grouped[item.category]) grouped[item.category]=[];
+    grouped[item.category].push(item);
+  });
+
+  return `
+<div class="page-header">
+  <h1>${t('storeTitle')} ✨</h1>
+  <p>${t('storeSub')}</p>
+</div>
+
+<!-- Saldo actual -->
+<div style="background:linear-gradient(135deg,rgba(201,151,58,0.2),rgba(232,201,122,0.1));border:1px solid rgba(201,151,58,0.4);border-radius:16px;padding:20px 24px;margin-bottom:28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+  <div style="display:flex;align-items:center;gap:14px">
+    <span style="font-size:36px">✨</span>
+    <div>
+      <div style="font-size:13px;color:rgba(245,240,232,0.5);margin-bottom:2px">${t('storeBalance')}</div>
+      <div style="font-family:var(--font-display);font-size:28px;color:var(--gold)">${coinBalance} <span style="font-size:14px;font-family:var(--font-body);color:rgba(245,240,232,0.6)">${t('storeCoinName')}</span></div>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    ${items.filter(i=>i.isCoinPack).map(i=>`
+      <button class="btn btn-gold btn-sm" onclick="buyItem('${i.id}')">
+        ${i.icon} ${i.amount} — $${i.price} MXN
+      </button>`).join('')}
+  </div>
+</div>
+
+<!-- Limitaciones del plan free -->
+${(state.user?.plan||'free')==='free'?`
+<div style="background:rgba(139,26,26,0.12);border:1px solid rgba(139,26,26,0.25);border-radius:12px;padding:14px 18px;margin-bottom:24px;display:flex;gap:10px;align-items:center">
+  <span>⚠️</span>
+  <div style="font-size:13px;color:rgba(245,240,232,0.7)">
+    ${state.lang==='es'
+      ?'Estás en el <strong>plan gratuito</strong>. Tienes 15 mensajes IA/mes, 2 lecciones y 5 quizzes. <a onclick="navigate(\'pricing-page\')" style="color:var(--gold);cursor:pointer">Actualiza tu plan →</a>'
+      :'You are on the <strong>free plan</strong>. You have 15 AI messages/month, 2 lessons, 5 quizzes. <a onclick="navigate(\'pricing-page\')" style="color:var(--gold);cursor:pointer">Upgrade →</a>'}
+  </div>
+</div>`:''}
+
+<!-- Items por categoría -->
+${Object.entries(grouped).filter(([cat])=>!['recarga','recharge'].includes(cat)).map(([cat,catItems])=>`
+  <div style="margin-bottom:28px">
+    <div style="font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:rgba(245,240,232,0.35);margin-bottom:14px">${catLabels[cat]||cat}</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px">
+      ${catItems.map(item=>`
+        <div style="background:rgba(245,240,232,0.04);border:1px solid rgba(245,240,232,0.1);border-radius:14px;padding:18px;transition:var(--transition)" onmouseover="this.style.borderColor='rgba(201,151,58,0.4)'" onmouseout="this.style.borderColor='rgba(245,240,232,0.1)'">
+          <div style="font-size:32px;margin-bottom:10px">${item.icon}</div>
+          <div style="font-weight:500;margin-bottom:4px">${item.name}</div>
+          <div style="font-size:12px;color:rgba(245,240,232,0.45);margin-bottom:4px;line-height:1.5">${item.desc}</div>
+          <div style="font-size:11px;color:rgba(245,240,232,0.3);margin-bottom:14px;font-style:italic">${item.detail}</div>
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div style="font-family:var(--font-display);color:var(--gold);font-size:16px">$${item.price} <span style="font-size:10px;font-family:var(--font-body);color:rgba(245,240,232,0.35)">MXN</span></div>
+            <button class="btn btn-gold btn-sm" onclick="buyItem('${item.id}')">
+              ${state.lang==='es'?'Comprar':'Buy'}
+            </button>
+          </div>
+        </div>`).join('')}
+    </div>
+  </div>`).join('')}`;
+}
+
+// ══════════════════════════════════
+// CONTACTO
+// ══════════════════════════════════
+function buildContact(){
+  return `
+<div class="page-header"><h1>${t('contactTitle')}</h1><p>${t('contactSub')}</p></div>
+<div style="max-width:600px">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+    <div class="input-wrap"><label class="input-label">${t('contactName')}</label><input class="input" id="cnt-name" type="text" placeholder="${state.lang==='es'?'Tu nombre':'Your name'}"></div>
+    <div class="input-wrap"><label class="input-label">${t('contactEmail')}</label><input class="input" id="cnt-email" type="email" placeholder="${state.lang==='es'?'tu@correo.com':'you@email.com'}"></div>
+  </div>
+  <div class="input-wrap" style="margin-bottom:14px">
+    <label class="input-label">${t('contactType')}</label>
+    <select class="input select" id="cnt-type">
+      <option>${t('contactTypeQ')}</option>
+      <option>${t('contactTypeBug')}</option>
+      <option>${t('contactTypeReport')}</option>
+      <option>${t('contactTypeChurch')}</option>
+    </select>
+  </div>
+  <div class="input-wrap" style="margin-bottom:20px">
+    <label class="input-label">${t('contactMsg')}</label>
+    <textarea class="input" id="cnt-msg" rows="5" placeholder="${state.lang==='es'?'Escribe tu mensaje aquí...':'Write your message here...'}" style="resize:vertical"></textarea>
+  </div>
+  <button class="btn btn-gold" onclick="sendContact()">${t('contactSend')}</button>
+  <div id="cnt-ok" style="display:none;margin-top:12px;color:#7ecfa0;font-size:14px">✓ ${t('contactSent')}</div>
+
+  <div style="margin-top:40px;padding-top:24px;border-top:1px solid rgba(245,240,232,0.08)">
+    <div style="font-size:13px;color:rgba(245,240,232,0.4);line-height:2">
+      📧 ${state.lang==='es'?'Respuesta en 24-48 horas hábiles':'Response within 24-48 business hours'}<br>
+      🔒 ${state.lang==='es'?'Tus datos están protegidos':'Your data is protected'}<br>
+      ✝️ ${state.lang==='es'?'MyFather · Torreón, México':'MyFather · Torreón, Mexico'}
+    </div>
+  </div>
+</div>`;
+}
+
+// ── Config de servicios ──────────────────────────────
+const RESEND_KEY = 're_FPirV3St_QFr5BxhuDgGqMVWxs236uznp';
+// ⬇️ Cuando tengas la URL del Worker de Cloudflare, ponla aquí:
+const CF_WORKER  = CF_WORKER_URL || ''; // reutiliza la misma variable de arriba
+
+async function sendContact(){
+  const name  = document.getElementById('cnt-name')?.value.trim();
+  const email = document.getElementById('cnt-email')?.value.trim();
+  const type  = document.getElementById('cnt-type')?.value;
+  const msg   = document.getElementById('cnt-msg')?.value.trim();
+  if(!name||!email||!msg){ showToast(state.lang==='es'?'Completa todos los campos':'Fill all fields'); return; }
+  if(CF_WORKER_URL){
+    try {
+      await fetch(`${CF_WORKER_URL}/contact`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ name, email, type, msg, lang: state.lang })
+      });
+    } catch(e){ console.warn('Worker contact error:', e); }
+  }
+  document.getElementById('cnt-ok').style.display='block';
+  showToast(t('contactSent'));
+}
+
+// ══════════════════════════════════
+// RECUPERAR CONTRASEÑA — Supabase envía el email
+// (Supabase usa tu dominio de Resend si lo configuras en Auth → SMTP)
+// ══════════════════════════════════
+async function sendPasswordReset(email){
+  if(!email){ showToast(state.lang==='es'?'Ingresa tu email':'Enter your email'); return; }
+  const redirectTo = window.location.origin + (window.location.pathname || '/') + '?reset=1';
+  const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo });
+  if(error) showToast(error.message);
+  else {
+    showToast(t('forgotPassSent'));
+    setTimeout(()=> document.getElementById('forgot-modal')?.remove(), 1500);
+  }
+}
+
+// ══════════════════════════════════
+// PRIVACIDAD & TÉRMINOS
+// ══════════════════════════════════
+function buildPrivacy(){
+  return `
+<div class="page-header"><h1>${t('privacyTitle')}</h1><p>${state.lang==='es'?'Última actualización: Abril 2025':'Last updated: April 2025'}</p></div>
+<div style="max-width:700px;line-height:1.8;font-size:14px;color:rgba(245,240,232,0.75)">
+  <h3 style="color:var(--gold);font-family:var(--font-serif);font-size:18px;margin:24px 0 8px">
+    ${state.lang==='es'?'1. Información que recopilamos':'1. Information We Collect'}
+  </h3>
+  <p>${state.lang==='es'
+    ?'Recopilamos: nombre, email y contraseña al registrarte; progreso de lecciones y quizzes; historial de conversaciones con el Tutor IA (anonimizado); y datos de uso general de la aplicación.'
+    :'We collect: name, email and password when you register; lesson and quiz progress; conversation history with the AI Tutor (anonymized); and general app usage data.'}</p>
+  <h3 style="color:var(--gold);font-family:var(--font-serif);font-size:18px;margin:24px 0 8px">
+    ${state.lang==='es'?'2. Uso de datos':'2. How We Use Data'}
+  </h3>
+  <p>${state.lang==='es'
+    ?'Usamos tus datos para personalizar tu experiencia, enviarte recordatorios de lectura (si los activas), detectar situaciones de crisis para conectarte con ayuda profesional, y mejorar el servicio. Nunca vendemos tus datos.'
+    :"We use your data to personalize your experience, send reading reminders (if enabled), detect crisis situations to connect you with professional help, and improve the service. We never sell your data."}</p>
+  <h3 style="color:var(--gold);font-family:var(--font-serif);font-size:18px;margin:24px 0 8px">
+    ${state.lang==='es'?'3. Seguridad':'3. Security'}
+  </h3>
+  <p>${state.lang==='es'
+    ?'Tus datos se almacenan en Supabase con cifrado SSL. Las contraseñas nunca se almacenan en texto plano. Usamos Row Level Security para que solo tú puedas ver tus datos.'
+    :'Your data is stored in Supabase with SSL encryption. Passwords are never stored in plain text. We use Row Level Security so only you can see your data.'}</p>
+  <h3 style="color:var(--gold);font-family:var(--font-serif);font-size:18px;margin:24px 0 8px">
+    ${state.lang==='es'?'4. Protección de menores':'4. Child Protection'}
+  </h3>
+  <p>${state.lang==='es'
+    ?'El modo niños requiere registro parental. Los chats en modo niños son monitoreados por IA para detectar situaciones de peligro. Las alertas de crisis se registran de forma anonimizada para revisión del administrador.'
+    :"Kids mode requires parental registration. Kids mode chats are monitored by AI to detect dangerous situations. Crisis alerts are logged anonymously for administrator review."}</p>
+  <h3 style="color:var(--gold);font-family:var(--font-serif);font-size:18px;margin:24px 0 8px">
+    ${state.lang==='es'?'5. Contacto':'5. Contact'}
+  </h3>
+  <p>${state.lang==='es'
+    ?'Para ejercer tus derechos ARCO (Acceso, Rectificación, Cancelación u Oposición) escríbenos a través del formulario de contacto.'
+    :'To exercise your rights (Access, Rectification, Erasure or Objection) write to us through the contact form.'}</p>
+</div>`;
+}
+
+function buildTerms(){
+  return `
+<div class="page-header"><h1>${t('termsTitle')}</h1><p>${state.lang==='es'?'Última actualización: Abril 2025':'Last updated: April 2025'}</p></div>
+<div style="max-width:700px;line-height:1.8;font-size:14px;color:rgba(245,240,232,0.75)">
+  <h3 style="color:var(--gold);font-family:var(--font-serif);font-size:18px;margin:24px 0 8px">
+    ${state.lang==='es'?'1. Uso del servicio':'1. Use of Service'}
+  </h3>
+  <p>${state.lang==='es'
+    ?'MyFather es una plataforma educativa de contenido bíblico y cristiano. No reemplaza la guía de un pastor, consejero espiritual o profesional de salud mental. El Tutor IA puede cometer errores teológicos — siempre consulta fuentes primarias.'
+    :'MyFather is an educational platform for biblical and Christian content. It does not replace the guidance of a pastor, spiritual counselor or mental health professional. The AI Tutor can make theological errors — always consult primary sources.'}</p>
+  <h3 style="color:var(--gold);font-family:var(--font-serif);font-size:18px;margin:24px 0 8px">
+    ${state.lang==='es'?'2. Suscripciones y pagos':'2. Subscriptions & Payments'}
+  </h3>
+  <p>${state.lang==='es'
+    ?'Los planes se cobran mensual o anualmente mediante MercadoPago. Puedes cancelar en cualquier momento. No se otorgan reembolsos por períodos parciales. Las Luces de Fe compradas no son reembolsables.'
+    :'Plans are billed monthly or annually via MercadoPago. You can cancel at any time. No refunds for partial periods. Purchased Faith Lights are non-refundable.'}</p>
+  <h3 style="color:var(--gold);font-family:var(--font-serif);font-size:18px;margin:24px 0 8px">
+    ${state.lang==='es'?'3. Limitaciones de responsabilidad':'3. Limitation of Liability'}
+  </h3>
+  <p>${state.lang==='es'
+    ?'MyFather no se responsabiliza por decisiones tomadas basándose únicamente en respuestas del Tutor IA. El servicio se provee "tal como está" sin garantías de disponibilidad continua.'
+    :'MyFather is not responsible for decisions made based solely on AI Tutor responses. The service is provided "as is" without guarantees of continuous availability.'}</p>
+  <h3 style="color:var(--gold);font-family:var(--font-serif);font-size:18px;margin:24px 0 8px">
+    ${state.lang==='es'?'4. Ley aplicable':'4. Governing Law'}
+  </h3>
+  <p>${state.lang==='es'
+    ?'Estos términos se rigen por las leyes de los Estados Unidos Mexicanos. Jurisdicción: Torreón, Coahuila, México.'
+    :'These terms are governed by the laws of the United Mexican States. Jurisdiction: Torreón, Coahuila, México.'}</p>
+</div>`;
 }
 
 // ══════════════════════════════════
@@ -1790,6 +2809,24 @@ function showToast(msg){
   clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('show'),3200);
 }
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');}
+function showForgotPass(){
+  const email = document.getElementById('ae-login')?.value.trim()||'';
+  const box = document.createElement('div');
+  box.id = 'forgot-modal';
+  box.style.cssText = 'position:fixed;inset:0;background:rgba(26,20,16,0.85);z-index:2000;display:flex;align-items:center;justify-content:center;padding:20px';
+  box.innerHTML=`<div style="background:#1e1810;border:1px solid rgba(201,151,58,0.3);border-radius:20px;padding:36px;max-width:380px;width:100%">
+    <div style="font-family:var(--font-display);font-size:20px;color:var(--gold);margin-bottom:8px">✉️ ${t('forgotPassTitle')}</div>
+    <div style="font-size:13px;color:rgba(245,240,232,0.45);margin-bottom:20px">${t('forgotPassSub')}</div>
+    <input class="input" id="fp-email" type="email" value="${email}" placeholder="tu@correo.com" style="margin-bottom:14px">
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-gold" style="flex:1;justify-content:center" onclick="sendPasswordReset(document.getElementById('fp-email').value.trim())">${t('forgotPassBtn')}</button>
+      <button class="btn btn-ghost" onclick="document.getElementById('forgot-modal').remove()">✕</button>
+    </div>
+  </div>`;
+  document.body.appendChild(box);
+  box.addEventListener('click', e=>{ if(e.target===box) box.remove(); });
+}
+
 function attachGlobalEvents(){
   document.getElementById('crisis-modal')?.addEventListener('click',function(e){if(e.target===this)hideCrisis();});
   document.addEventListener('keydown',e=>{if(e.key==='Escape')hideCrisis();});
@@ -1798,30 +2835,8 @@ function attachGlobalEvents(){
 // ══════════════════════════════════
 // INIT
 // ══════════════════════════════════
-buildApp();
+initSupabase(); // carga sesión de Supabase y luego llama buildApp()
 
   </script>
-<script type="module">
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
-
-const supabase = createClient(
-  "https://eumxuuvtixkojkjuzyyo.supabase.co",
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV1bXh1dXZ0aXhrb2pranV6eXlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NDQ2NDksImV4cCI6MjA5MDAyMDY0OX0.srYdofHSEBQby4QKpBKeZ0BkSETl2H89UpupeUqYD7Q"
-);
-
-window.supabase = supabase;
-
-window.startApp = () => {
-  buildApp();
-};
-</script>
-<script>
-  // espera a que supabase exista
-  window.addEventListener("load", () => {
-    if(window.startApp){
-      window.startApp();
-    }
-  });
-</script>
 </body>
 </html>
