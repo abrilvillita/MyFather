@@ -813,10 +813,15 @@ body.kids-mode .hero-bg {
 // MYFATHER — Full App v2 + Supabase
 // ═══════════════════════════════════════════════════════
 
-// ── Supabase client ──
+// ── Supabase singleton (evita warning de múltiples instancias) ──
 const SUPA_URL  = 'https://eumxuuvtixkojkjuzyyo.supabase.co';
 const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV1bXh1dXZ0aXhrb2pranV6eXlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NDQ2NDksImV4cCI6MjA5MDAyMDY0OX0.srYdofHSEBQby4QKpBKeZ0BkSETl2H89UpupeUqYD7Q';
-const db = supabase.createClient(SUPA_URL, SUPA_ANON);
+if(!window.__mfDb){
+  window.__mfDb = supabase.createClient(SUPA_URL, SUPA_ANON, {
+    auth: { storageKey: 'mf-auth' }  // key única, evita colisión con otras apps
+  });
+}
+const db = window.__mfDb;
 
 const state = {
   user:        null,   // { id, email, name, plan, streak, account_type, coins }
