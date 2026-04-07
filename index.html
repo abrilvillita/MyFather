@@ -346,6 +346,11 @@ body {
 .message.user { flex-direction: row-reverse; }
 
 @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes bounceIn { 0%{transform:scale(0.8);opacity:0} 60%{transform:scale(1.05)} 100%{transform:scale(1);opacity:1} }
+@keyframes streakPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
+@keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+@keyframes kidsGlow { 0%,100%{box-shadow:0 0 0 0 rgba(107,189,227,0.3)} 50%{box-shadow:0 0 0 8px rgba(107,189,227,0)} }
 
 .msg-avatar {
   width: 36px; height: 36px; border-radius: 50%;
@@ -670,19 +675,28 @@ body {
    KIDS MODE — Overrides
 ══════════════════════════════════ */
 body.kids-mode {
-  background: #1a2a4a;
+  background: linear-gradient(135deg, #0d1b2a 0%, #1a2a3a 50%, #0d1f18 100%);
   font-family: 'DM Sans', sans-serif;
 }
-body.kids-mode .nav { background: rgba(26,42,74,0.95); border-color: rgba(107,189,227,0.2); }
-body.kids-mode .nav-logo { color: var(--kids-sky); }
+body.kids-mode .nav { background: rgba(13,27,42,0.97); border-color: rgba(107,189,227,0.25); border-bottom-width: 2px; }
+body.kids-mode .nav-logo { color: var(--kids-sky); font-size: 20px; }
 body.kids-mode .sidebar { border-color: rgba(107,189,227,0.15); }
 body.kids-mode .sidebar-item:hover, body.kids-mode .sidebar-item.active { color: var(--kids-sky); background: rgba(107,189,227,0.1); }
-body.kids-mode .stat-value, body.kids-mode .lesson-title { color: var(--kids-sun); }
-body.kids-mode .card { border-color: rgba(107,189,227,0.2); }
-body.kids-mode .chat-input:focus { border-color: var(--kids-sky); }
-body.kids-mode .btn-gold { background: var(--kids-sun); }
-body.kids-mode .btn-gold:hover { background: #ffe599; }
-body.kids-mode .page-header h1 { font-family: var(--font-body); font-weight: 500; }
+body.kids-mode .stat-value { color: var(--kids-sun); }
+body.kids-mode .lesson-title { color: var(--kids-sky); }
+body.kids-mode .stat-card { border-color: rgba(107,189,227,0.2); border-radius: 16px; }
+body.kids-mode .card { border-color: rgba(107,189,227,0.15); border-radius: 18px; }
+body.kids-mode .chat-input:focus { border-color: var(--kids-sky); box-shadow: 0 0 0 3px rgba(107,189,227,0.15); }
+body.kids-mode .btn-gold { background: var(--kids-sun); color: #1a1410; border-radius: 40px; }
+body.kids-mode .btn-gold:hover { background: #ffe599; transform: translateY(-2px) scale(1.03); }
+body.kids-mode .page-header h1 { font-family: var(--font-body); font-weight: 600; font-size: 26px; color: var(--kids-sky); }
+body.kids-mode .lesson-card.kids-card { animation: kidsGlow 3s ease-in-out infinite; border-radius: 20px; }
+body.kids-mode .lesson-card.kids-card:hover { transform: translateY(-4px) scale(1.02); border-color: var(--kids-sky); }
+body.kids-mode .lesson-thumb { background: linear-gradient(135deg,rgba(107,189,227,0.12),rgba(120,200,122,0.12)); }
+body.kids-mode .quiz-card { border-radius: 20px; border-color: rgba(107,189,227,0.25); }
+body.kids-mode .quiz-option { border-radius: 14px; }
+body.kids-mode .quiz-option:hover { border-color: var(--kids-sky); background: rgba(107,189,227,0.1); }
+body.kids-mode .msg-bubble { border-radius: 18px; font-size: 16px; line-height: 1.8; }
 
 /* Kids stars background */
 body.kids-mode .hero-bg {
@@ -945,6 +959,62 @@ async function logHaven(feeling){
 }
 
 // ── Init: restore session if exists ──────────────────
+// ── Cache de contenido desde Supabase ────────────────
+const contentCache = { verses:[], quiz:[], devotionals:[], readingPlan:[], lessons:[] };
+
+async function loadContentFromDB(){
+  try {
+    // Versículo de hoy
+    const dayOfYear = Math.floor((new Date() - new Date(new Date().getFullYear(),0,0)) / 86400000);
+    const { data: verses } = await db.from('daily_verses').select('*').eq('day_of_year', dayOfYear).single();
+    if(verses) contentCache.verses = [verses];
+
+    // Quiz questions
+    const { data: quiz } = await db.from('quiz_questions').select('*').order('id').limit(50);
+    if(quiz?.length) contentCache.quiz = quiz;
+
+    // Devocional de esta semana
+    const weekNum = Math.ceil(dayOfYear / 7);
+    const { data: dev } = await db.from('devotionals').select('*').eq('week_num', weekNum).single();
+    if(dev) contentCache.devotionals = [dev];
+
+    // Plan de lectura del día
+    const { data: reading } = await db.from('reading_plan').select('*').eq('day_num', dayOfYear).single();
+    if(reading) contentCache.readingPlan = [reading];
+
+  } catch(e){ console.warn('Content load error (usando fallback local):', e?.message); }
+}
+
+function getTodayVerseFromDB(){
+  if(contentCache.verses?.length){
+    const v = contentCache.verses[0];
+    return state.lang==='en'
+      ? { v: v.verse_en, r: v.ref_en }
+      : { v: v.verse_es, r: v.ref_es };
+  }
+  return getTodayVerse(); // fallback local
+}
+
+function getTodayDevotionalFromDB(){
+  if(contentCache.devotionals?.length){
+    const d = contentCache.devotionals[0];
+    return state.lang==='en'
+      ? { verse: d.verse_en, ref: d.ref_en, body: d.body_en, reflection: d.reflection_en, title: d.title_en }
+      : { verse: d.verse_es, ref: d.ref_es, body: d.body_es, reflection: d.reflection_es, title: d.title_es };
+  }
+  return DEVOTIONAL[state.lang]||DEVOTIONAL.es; // fallback
+}
+
+function getTodayReadingFromDB(){
+  if(contentCache.readingPlan?.length){
+    const r = contentCache.readingPlan[0];
+    return state.lang==='en'
+      ? { book: r.book_en, chapter: r.chapter, title: r.title_en, text: r.passage_en }
+      : { book: r.book_es, chapter: r.chapter, title: r.title_es, text: r.passage_es };
+  }
+  return null;
+}
+
 async function initSupabase(){
   const { data: { session } } = await db.auth.getSession();
   if(session){
@@ -959,12 +1029,17 @@ async function initSupabase(){
         streak: profile.streak,
         account_type: profile.account_type,
         coins: profile.coins || 0,
+        total_lessons: profile.total_lessons || 0,
+        total_verses: profile.total_verses || 0,
+        quiz_avg: profile.quiz_avg || 0,
       };
       state.streak = profile.streak;
       state.lang   = profile.lang || 'es';
       await loadMsgCount(session.user.id);
     }
   }
+  // Cargar contenido de Supabase en paralelo (no bloquea el inicio)
+  loadContentFromDB().catch(()=>{});
   buildApp();
 }
 
@@ -1836,7 +1911,7 @@ function getPricingPlans(){
   ];
 }
 
-const MP_PUBLIC_KEY = 'APP_USR-c3dfb65c-5524-4042-816e-1ab4b89f58a7';
+const MP_PUBLIC_KEY = ''; // Cargada desde el Worker
 
 async function handleCheckout(plan){
   if(!state.user && plan!=='free'){ navigate('signup'); return; }
@@ -1923,30 +1998,95 @@ function buildHome(){
   const h=new Date().getHours();
   const g=h<12?t('greetMorning'):h<18?t('greetAfternoon'):t('greetEvening');
   const isK=state.mode==='kids';
-  const name=state.user?.name?`, ${state.user.name}`:'';
-  return `<div class="page-header"><h1>${g}${name} ${isK?'⭐':'✝️'}</h1><p>${isK?t('homeKidsSub'):t('homeAdultSub')}</p></div>
-<div class="stats-grid">
-  <div class="stat-card"><div class="stat-label">${t('statStreak')}</div><div class="stat-value">${state.streak}</div><div class="stat-sub">${t('statStreakSub')}</div></div>
+  const name=state.user?.name||'';
+  const streak=state.streak||0;
+  const verse=getTodayVerse();
+  const plan=state.user?.plan||'free';
+  const msgsLeft=getMsgRemaining();
+  const isLimited=['free','basic'].includes(plan);
+
+  // Racha visual tipo Duolingo
+  const streakFlame = streak>=7?'🔥':streak>=3?'🕯️':'✨';
+  const streakMsg = streak===0?(state.lang==='es'?'¡Empieza hoy!':'Start today!')
+    :streak===1?(state.lang==='es'?'¡Primer día!':'First day!')
+    :streak<7?(state.lang==='es'?`${streak} días seguidos`:`${streak} days in a row`)
+    :(state.lang==='es'?`¡${streak} días! ¡Increíble!`:`${streak} days! Amazing!`);
+
+  const quickActions=isK
+    ?[['🎯',state.lang==='es'?'Jugar Quiz':'Play Quiz','quiz'],
+      ['📖',state.lang==='es'?'Historias':'Stories','lessons'],
+      ['🌟',state.lang==='es'?'Preguntarle a Dios':'Ask God','chat'],
+      ['📅',state.lang==='es'?'Mi lectura':'My reading','reading']]
+    :[['💬',t('quickDev'),'devotional'],
+      ['🎯',t('quickQuiz'),'quiz'],
+      ['📅',t('quickRead'),'reading'],
+      ['🕊️',t('quickHaven'),'haven']];
+
+  return `
+${isK?`<style>
+  .home-kids-bg{background:linear-gradient(135deg,rgba(107,189,227,0.08),rgba(120,200,122,0.08));border-radius:20px;padding:8px;margin-bottom:16px}
+  .stat-card{border-radius:16px!important}
+  .quick-card{border-radius:18px!important;font-size:15px!important}
+</style>`:''}
+
+<div class="${isK?'home-kids-bg':''}">
+<div class="page-header" style="margin-bottom:16px">
+  <h1 style="${isK?'color:var(--kids-sky)':''}">${g}${name?', '+name:''} ${isK?'⭐':'✝️'}</h1>
+  <p>${isK?t('homeKidsSub'):t('homeAdultSub')}</p>
+</div>
+
+<!-- Racha destacada -->
+<div class="card card-gold" style="margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;padding:20px 24px;cursor:pointer" onclick="navigateApp('reading')">
+  <div style="display:flex;align-items:center;gap:14px">
+    <div style="font-size:42px;line-height:1">${streakFlame}</div>
+    <div>
+      <div style="font-family:var(--font-display);font-size:28px;color:var(--gold);line-height:1">${streak}</div>
+      <div style="font-size:13px;color:rgba(245,240,232,0.6);margin-top:2px">${streakMsg}</div>
+    </div>
+  </div>
+  <div style="text-align:right">
+    <div style="font-size:12px;color:rgba(245,240,232,0.4)">${state.lang==='es'?'Racha actual':'Current streak'}</div>
+    ${streak>0?`<div style="font-size:11px;color:var(--sage);margin-top:4px">✓ ${state.lang==='es'?'Activa hoy':'Active today'}</div>`
+    :`<div style="font-size:11px;color:var(--gold);margin-top:4px">${state.lang==='es'?'¡Completa tu lectura!':'Complete your reading!'}</div>`}
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="stats-grid" style="margin-bottom:20px">
   <div class="stat-card"><div class="stat-label">${t('statLessons')}</div><div class="stat-value">${state.user?.total_lessons||0}</div><div class="stat-sub">${t('statLessonsSub')}</div></div>
-  <div class="stat-card"><div class="stat-label">${t('statQuiz')}</div><div class="stat-value">${state.user?.quiz_avg||0}%</div><div class="stat-sub">${t('statQuizSub')}</div></div>
-  <div class="stat-card"><div class="stat-label">${t('statVerses')}</div><div class="stat-value">${state.user?.total_verses||0}</div><div class="stat-sub">${t('statVersesSub')}</div></div>
+  <div class="stat-card"><div class="stat-label">${t('statQuiz')}</div><div class="stat-value">${state.user?.quiz_avg||'—'}${state.user?.quiz_avg?'%':''}</div><div class="stat-sub">${t('statQuizSub')}</div></div>
+  <div class="stat-card"><div class="stat-label">${state.lang==='es'?'Mensajes IA':'AI Messages'}</div><div class="stat-value" style="${msgsLeft<=3&&isLimited?'color:var(--crimson)':''}">${isLimited?msgsLeft:'∞'}</div><div class="stat-sub">${state.lang==='es'?'restantes':'remaining'}</div></div>
+  <div class="stat-card" style="cursor:pointer" onclick="navigateApp('store')"><div class="stat-label">${t('storeCoinName')}</div><div class="stat-value" style="color:var(--gold)">✨${state.user?.coins||0}</div><div class="stat-sub">${state.lang==='es'?'tienda':'store'}</div></div>
 </div>
-<div class="card card-gold" style="margin-bottom:24px;text-align:center;padding:32px">
-  <div style="font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:16px">${t('verseOfDay')}</div>
-  <div style="font-family:var(--font-serif);font-size:22px;font-style:italic;line-height:1.55;margin-bottom:10px">${state.lang==='en'?'"For I know the plans I have for you," declares the Lord.':'"Porque yo sé los pensamientos que tengo acerca de vosotros, dice Jehová."'}</div>
-  <div style="font-size:13px;color:var(--gold)">${state.lang==='en'?'Jeremiah 29:11':'Jeremías 29:11'}</div>
+
+<!-- Versículo del día -->
+<div class="card" style="margin-bottom:20px;padding:24px;border-color:rgba(201,151,58,0.2);text-align:center">
+  <div style="font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--gold);margin-bottom:14px">${t('verseOfDay')}</div>
+  <div style="font-family:var(--font-serif);font-size:20px;font-style:italic;line-height:1.6;margin-bottom:10px;color:var(--parchment)">${verse.v}</div>
+  <div style="font-size:13px;color:var(--gold)">${verse.r}</div>
+  <button class="btn btn-ghost btn-sm" style="margin-top:14px" onclick="navigateApp('chat')">${state.lang==='es'?'💬 Reflexionar con el Tutor IA':'💬 Reflect with AI Tutor'}</button>
 </div>
-<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:28px">
-  <div class="card" style="flex:1;min-width:260px;cursor:pointer" onclick="navigateApp('chat')">
-    <div style="display:flex;align-items:center;gap:12px"><div style="font-size:28px">🤖</div><div><div style="font-weight:500;margin-bottom:3px">${t('ctaChat')}</div><div style="font-size:13px;color:rgba(245,240,232,0.45)">${t('ctaChatSub')}</div></div></div>
+
+<!-- Acciones rápidas -->
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-bottom:20px">
+  ${quickActions.map(([e,l,p])=>`
+  <div class="card quick-card" style="text-align:center;cursor:pointer;padding:22px 12px;transition:transform .15s" 
+       onmouseenter="this.style.transform='translateY(-2px)'" onmouseleave="this.style.transform=''"
+       onclick="navigateApp('${p}')">
+    <div style="font-size:30px;margin-bottom:8px">${e}</div>
+    <div style="font-size:13px;font-weight:500">${l}</div>
+  </div>`).join('')}
+</div>
+
+${isLimited&&msgsLeft<=3?`
+<div style="background:rgba(201,151,58,0.08);border:1px solid rgba(201,151,58,0.25);border-radius:12px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+  <div style="font-size:13px;color:rgba(245,240,232,0.7)">
+    ${state.lang==='es'?`⚡ Te quedan <strong style="color:var(--gold)">${msgsLeft} mensajes IA</strong> este mes`
+    :`⚡ You have <strong style="color:var(--gold)">${msgsLeft} AI messages</strong> left this month`}
   </div>
-  <div class="card" style="flex:1;min-width:260px;cursor:pointer" onclick="navigateApp('lessons')">
-    <div style="display:flex;align-items:center;gap:12px"><div style="font-size:28px">▶️</div><div><div style="font-weight:500;margin-bottom:3px">${t('ctaContinue')}</div><div style="font-size:13px;color:rgba(245,240,232,0.45)">${t('ctaContinueSub')}</div></div></div>
-    <div class="lesson-progress" style="margin-top:14px"><div class="lesson-progress-fill" style="width:65%"></div></div>
-  </div>
-</div>
-<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px">
-  ${[['📖',t('quickDev'),'devotional'],['🎯',t('quickQuiz'),'quiz'],['📅',t('quickRead'),'reading'],['🕊️',t('quickHaven'),'haven']].map(([e,l,p])=>`<div class="card" style="text-align:center;cursor:pointer;padding:20px 16px" onclick="navigateApp('${p}')"><div style="font-size:28px;margin-bottom:8px">${e}</div><div style="font-size:13px">${l}</div></div>`).join('')}
+  <button class="btn btn-gold btn-sm" onclick="navigate('pricing-page')">${state.lang==='es'?'Actualizar plan':'Upgrade'}</button>
+</div>`:''}
+
 </div>`;
 }
 
@@ -2054,9 +2194,6 @@ const COMPLEX_KW = [
 // Ejemplo: 'https://myfather-api.TU_USUARIO.workers.dev'
 const CF_WORKER_URL = 'https://myfather-api.mirandavilla341.workers.dev';
 
-// DeepSeek directo (fallback temporal mientras configuras el Worker)
-// ⚠️ Mover al Worker en producción para ocultar la key
-const DEEPSEEK_KEY_TEMP = 'sk-4491566fc184475cba61e3e8b35f7109';
 
 async function callAI(txt, useDeep){
   const lng = state.lang==='en' ? 'English' : 'Spanish (español)';
@@ -2070,46 +2207,24 @@ async function callAI(txt, useDeep){
   const systemPrompt = isK ? sysKids : (useDeep ? sysDeep : sysFast);
   const messages = [...state.chatHistory.slice(-6), { role:'user', content: txt }];
 
-  // ── Si el Worker está configurado, todo pasa por él (seguro) ──
-  if(CF_WORKER_URL){
-    const r = await fetch(`${CF_WORKER_URL}/ai/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ layer: useDeep ? 3 : 2, system: systemPrompt, messages, max_tokens: maxTok })
-    });
-    const d = await r.json();
-    if(d.error) throw new Error(d.error);
-    return { text: d.content?.[0]?.text || '...', layer: useDeep ? 3 : 2 };
+  // Todo el AI pasa por Cloudflare Worker — las API keys están seguras allá
+  const r = await fetch(`${CF_WORKER_URL}/ai/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      layer: useDeep ? 3 : 2,
+      system: systemPrompt,
+      messages,
+      max_tokens: maxTok
+    })
+  });
+  if(!r.ok){
+    const err = await r.text().catch(()=>'');
+    throw new Error(`Worker ${r.status}: ${err.slice(0,100)}`);
   }
-
-  // ── Fallback: llamada directa mientras configuras el Worker ──
-  if(useDeep){
-    // Capa 3: DeepSeek directo (temporal)
-    const r = await fetch('https://api.deepseek.com/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${DEEPSEEK_KEY_TEMP}` },
-      body: JSON.stringify({
-        model: 'deepseek-chat', max_tokens: maxTok,
-        messages: [{ role: 'system', content: systemPrompt }, ...messages]
-      })
-    });
-    const d = await r.json();
-    if(d.error) throw new Error(d.error.message);
-    return { text: d.choices?.[0]?.message?.content || '...', layer: 3 };
-  } else {
-    // Capa 2: DeepSeek también (sin Anthropic key por ahora)
-    const r = await fetch('https://api.deepseek.com/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${DEEPSEEK_KEY_TEMP}` },
-      body: JSON.stringify({
-        model: 'deepseek-chat', max_tokens: maxTok,
-        messages: [{ role: 'system', content: systemPrompt }, ...messages]
-      })
-    });
-    const d = await r.json();
-    if(d.error) throw new Error(d.error.message);
-    return { text: d.choices?.[0]?.message?.content || '...', layer: 2 };
-  }
+  const d = await r.json();
+  if(d.error) throw new Error(typeof d.error === 'string' ? d.error : JSON.stringify(d.error));
+  return { text: d.content?.[0]?.text || '...', layer: useDeep ? 3 : 2 };
 }
 
 function detectCrisis(txt){
@@ -2378,51 +2493,165 @@ function buildDevotional(){
 // READING PLAN
 // ══════════════════════════════════
 function buildReading(){
-  const days=Array.from({length:31},(_,i)=>({n:i+1,s:i<15?'done':i===15?'today':'upcoming'}));
-  const books=(state.lang==='en'?['Genesis','Exodus','Psalms','Proverbs','Matthew','John','Romans']:['Génesis','Éxodo','Salmos','Proverbios','Mateo','Juan','Romanos']);
-  const active=state.lang==='en'?'Matthew':'Mateo';
-  return `<div class="page-header"><h1>${t('readTitle')}</h1><p>${t('readSub')}</p></div>
+  const today=new Date().getDate()-1; // 0-based día del mes
+  const month=new Date().toLocaleString(state.lang==='en'?'en-US':'es-MX',{month:'long',year:'numeric'});
+  const daysInMonth=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();
+  const days=Array.from({length:daysInMonth},(_,i)=>({
+    n:i+1,
+    s: i<today?'done': i===today?'today':'upcoming'
+  }));
+  const isK=state.mode==='kids';
+
+  const READING_PLAN={
+    es:[
+      {book:'Génesis',ch:'1-2',title:'La Creación',text:'En el principio creó Dios los cielos y la tierra. Y la tierra estaba desordenada y vacía, y las tinieblas estaban sobre la faz del abismo...'},
+      {book:'Génesis',ch:'3',title:'La Caída',text:'Pero la serpiente era astuta, más que todos los animales del campo que Jehová Dios había hecho; la cual dijo a la mujer: ¿Conque Dios os ha dicho: No comáis de todo árbol del huerto?'},
+      {book:'Salmos',ch:'23',title:'El Señor es mi Pastor',text:'Jehová es mi pastor; nada me faltará. En lugares de delicados pastos me hará descansar; junto a aguas de reposo me pastoreará...'},
+      {book:'Mateo',ch:'5',title:'El Sermón del Monte',text:'Bienaventurados los pobres en espíritu, porque de ellos es el reino de los cielos. Bienaventurados los que lloran, porque ellos recibirán consolación...'},
+      {book:'Juan',ch:'3',title:'El Nuevo Nacimiento',text:'Porque de tal manera amó Dios al mundo, que ha dado a su Hijo unigénito, para que todo aquel que en él cree, no se pierda, mas tenga vida eterna...'},
+      {book:'Romanos',ch:'8',title:'Vida en el Espíritu',text:'Ahora, pues, ninguna condenación hay para los que están en Cristo Jesús, los que no andan conforme a la carne, sino conforme al Espíritu...'},
+      {book:'1 Corintios',ch:'13',title:'El Himno al Amor',text:'Si yo hablase lenguas humanas y angélicas, y no tengo amor, vengo a ser como metal que resuena, o címbalo que retiña...'},
+    ],
+    en:[
+      {book:'Genesis',ch:'1-2',title:'The Creation',text:'In the beginning God created the heavens and the earth. Now the earth was formless and empty, darkness was over the surface of the deep...'},
+      {book:'Psalm',ch:'23',title:'The Lord is My Shepherd',text:"The Lord is my shepherd, I lack nothing. He makes me lie down in green pastures, he leads me beside quiet waters, he refreshes my soul..."},
+      {book:'Matthew',ch:'5',title:'The Sermon on the Mount',text:'Blessed are the poor in spirit, for theirs is the kingdom of heaven. Blessed are those who mourn, for they will be comforted...'},
+      {book:'John',ch:'3',title:'Born Again',text:'For God so loved the world that he gave his one and only Son, that whoever believes in him shall not perish but have eternal life...'},
+      {book:'Romans',ch:'8',title:'Life Through the Spirit',text:'Therefore, there is now no condemnation for those who are in Christ Jesus, because through Christ Jesus the law of the Spirit who gives life has set you free...'},
+    ]
+  };
+
+  const plan=READING_PLAN[state.lang]||READING_PLAN.es;
+  const todayReading=plan[today%plan.length];
+
+  return `<div class="page-header"><h1>${t('readTitle')}</h1><p style="text-transform:capitalize">${month}</p></div>
 <div class="reading-plan">
   <div class="plan-calendar">
-    <div style="font-size:13px;color:rgba(245,240,232,0.45);margin-bottom:12px;letter-spacing:.05em">${t('readMonthLabel')}</div>
-    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:6px">${t('readDays').map(d=>`<div style="font-size:10px;text-align:center;color:rgba(245,240,232,0.3);padding:4px">${d}</div>`).join('')}</div>
-    <div class="plan-week">${days.map(d=>`<div class="plan-day ${d.s}"><span class="day-num">${d.n}</span><span class="day-check">${d.s==='done'?'✓':''}</span></div>`).join('')}</div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:6px">
+      ${(state.lang==='en'?['S','M','T','W','T','F','S']:['D','L','M','X','J','V','S']).map(d=>`<div style="font-size:10px;text-align:center;color:rgba(245,240,232,0.3);padding:4px">${d}</div>`).join('')}
+    </div>
+    <div class="plan-week" id="cal-days">
+      ${days.map(d=>`<div class="plan-day ${d.s}" onclick="${d.s==='today'?'markReadingDone()':''}">
+        <span class="day-num">${d.n}</span>
+        <span class="day-check">${d.s==='done'?'✓':''}</span>
+      </div>`).join('')}
+    </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
       <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:rgba(245,240,232,0.4)"><div style="width:10px;height:10px;border-radius:2px;background:rgba(61,107,79,0.6)"></div>${t('readLegendDone')}</div>
       <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:rgba(245,240,232,0.4)"><div style="width:10px;height:10px;border-radius:2px;background:rgba(201,151,58,0.5)"></div>${t('readLegendToday')}</div>
     </div>
+    <div style="margin-top:16px;padding:12px;background:rgba(201,151,58,0.08);border-radius:10px;font-size:13px">
+      🔥 ${state.lang==='es'?`Racha actual: <strong style="color:var(--gold)">${state.streak} días</strong>`:`Current streak: <strong style="color:var(--gold)">${state.streak} days</strong>`}
+    </div>
   </div>
   <div>
-    <div class="book-select">${books.map(b=>`<button class="book-btn ${b===active?'active':''}" onclick="this.closest('.book-select').querySelectorAll('.book-btn').forEach(x=>x.classList.remove('active'));this.classList.add('active')">${b}</button>`).join('')}</div>
     <div class="passage-card">
-      <div style="font-size:12px;color:var(--gold);margin-bottom:16px;letter-spacing:.08em">${t('readTodayLabel')}</div>
-      <div class="passage-text">${PASSAGE[state.lang]||PASSAGE.es}</div>
+      <div style="font-size:12px;color:var(--gold);margin-bottom:4px;letter-spacing:.08em">${t('readTodayLabel')}</div>
+      <div style="font-size:18px;font-family:var(--font-serif);margin-bottom:4px">${todayReading.title}</div>
+      <div style="font-size:12px;color:rgba(245,240,232,0.4);margin-bottom:16px">${todayReading.book} ${todayReading.ch}</div>
+      <div class="passage-text" style="line-height:1.9;font-style:italic">"${todayReading.text}"</div>
       <div style="display:flex;gap:10px;margin-top:24px;flex-wrap:wrap">
-        <button class="btn btn-gold btn-sm" onclick="showToast('${t('toastMarked')}')">${t('readMark')}</button>
+        <button class="btn btn-gold btn-sm" id="mark-read-btn" onclick="markReadingDone()">${t('readMark')}</button>
         <button class="btn btn-ghost btn-sm" onclick="navigateApp('chat')">${t('readAsk')}</button>
-        <button class="btn btn-ghost btn-sm" onclick="showToast('${t('toastNote')}')">${t('readNote')}</button>
       </div>
+    </div>
+    <div style="margin-top:16px">
+      <div style="font-size:12px;color:rgba(245,240,232,0.4);margin-bottom:10px">${state.lang==='es'?'Lecturas disponibles:':'Available readings:'}</div>
+      ${plan.map((r,i)=>`<div style="display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid rgba(245,240,232,0.06);cursor:pointer" onclick="selectReading(${i})">
+        <div style="font-size:16px">${i<today?'✅':i===today?'📖':'⬜'}</div>
+        <div style="flex:1"><div style="font-size:13px;font-weight:500">${r.title}</div><div style="font-size:11px;color:rgba(245,240,232,0.4)">${r.book} ${r.ch}</div></div>
+      </div>`).join('')}
     </div>
   </div>
 </div>`;
 }
 
+async function markReadingDone(){
+  const btn=document.getElementById('mark-read-btn');
+  if(btn){ btn.disabled=true; btn.textContent='✓ '+( state.lang==='es'?'¡Marcado!':'Marked!'); }
+
+  // Actualizar racha en Supabase
+  if(state.user){
+    try{
+      const today=new Date().toISOString().split('T')[0];
+      // Guardar en reading_progress
+      await db.from('reading_progress').upsert({
+        user_id: state.user.id,
+        day_number: new Date().getDate(),
+        book: 'daily',
+        chapter: today,
+        read_at: new Date().toISOString()
+      },{onConflict:'user_id,day_number'});
+      // Incrementar racha y total_verses
+      const newStreak = state.streak+1;
+      await db.from('profiles').update({
+        streak: newStreak,
+        total_verses: (state.user.total_verses||0)+1,
+        updated_at: new Date().toISOString()
+      }).eq('id',state.user.id);
+      state.streak=newStreak;
+      state.user.total_verses=(state.user.total_verses||0)+1;
+      showToast(`🔥 ${state.lang==='es'?`¡Racha: ${newStreak} días!`:`Streak: ${newStreak} days!`}`);
+    }catch(e){ showToast(state.lang==='es'?'Guardado localmente':'Saved locally'); }
+  }
+}
+
+function selectReading(i){
+  const plan=(state.lang==='es'?[
+    {book:'Génesis',ch:'1-2',title:'La Creación',text:'En el principio creó Dios los cielos y la tierra...'},
+    {book:'Salmos',ch:'23',title:'El Señor es mi Pastor',text:'Jehová es mi pastor; nada me faltará...'},
+    {book:'Mateo',ch:'5',title:'El Sermón del Monte',text:'Bienaventurados los pobres en espíritu...'},
+    {book:'Juan',ch:'3',title:'El Nuevo Nacimiento',text:'Porque de tal manera amó Dios al mundo...'},
+    {book:'Romanos',ch:'8',title:'Vida en el Espíritu',text:'Ahora, pues, ninguna condenación hay para los que están en Cristo Jesús...'},
+    {book:'1 Corintios',ch:'13',title:'El Himno al Amor',text:'Si yo hablase lenguas humanas y angélicas, y no tengo amor...'},
+    {book:'Efesios',ch:'6',title:'La Armadura de Dios',text:'Por lo demás, hermanos míos, fortaleceos en el Señor, y en el poder de su fuerza...'},
+  ]:[
+    {book:'Genesis',ch:'1-2',title:'The Creation',text:'In the beginning God created the heavens and the earth...'},
+    {book:'Psalm',ch:'23',title:'The Lord is My Shepherd',text:'The Lord is my shepherd, I lack nothing...'},
+    {book:'Matthew',ch:'5',title:'Sermon on the Mount',text:'Blessed are the poor in spirit...'},
+    {book:'John',ch:'3',title:'Born Again',text:'For God so loved the world...'},
+    {book:'Romans',ch:'8',title:'Life Through the Spirit',text:'There is now no condemnation for those who are in Christ Jesus...'},
+  ]);
+  const r=plan[i]||plan[0];
+  const pc=document.querySelector('.passage-text');
+  const pt=document.querySelector('.passage-card div');
+  if(pc) pc.textContent='"'+r.text+'"';
+}
+
 // ══════════════════════════════════
 // QUIZ
 // ══════════════════════════════════
-function buildQuiz(){state.quizState={q:0,score:0,answered:false};return renderQuizQ();}
+function buildQuiz(){
+  state.quizState={q:0,score:0,answered:false,saved:false};
+  return renderQuizQ();
+}
 function renderQuizQ(){
-  const qs=QUIZ[state.lang]||QUIZ.es;
-  if(state.quizState.q>=qs.length) return renderQuizEnd();
+  const isK=state.mode==='kids';
+  const allQs=QUIZ[state.lang]||QUIZ.es;
+  // Filtrar por modo — niños ven preguntas kids, adultos ven las de adultos
+  const qs=allQs.filter(q=>isK?q.kids:!q.kids);
+  if(!qs.length||state.quizState.q>=qs.length) return renderQuizEnd();
   const q=qs[state.quizState.q];
-  return `<div class="page-header"><h1>${t('quizTitle')}</h1><p>${t('quizSub')}</p></div>
-<div class="quiz-streak">${ic('star')} ${t('quizStreakLabel')} ${state.streak} · ${t('quizScoreLabel')} ${state.quizState.score}/${state.quizState.q}</div>
+  const progress=Math.round((state.quizState.q/qs.length)*100);
+
+  return `<div class="page-header">
+  <h1>${t('quizTitle')}</h1>
+  <div style="display:flex;align-items:center;gap:10px;margin-top:8px;font-size:13px;color:rgba(245,240,232,0.5)">
+    <span>🔥 ${state.streak}</span>
+    <span>·</span>
+    <span>${t('quizScoreLabel')} ${state.quizState.score}/${state.quizState.q}</span>
+    <span>·</span>
+    <span>${state.quizState.q+1}/${qs.length}</span>
+  </div>
+</div>
 <div class="quiz-card">
-  <div class="quiz-progress-bar"><div class="quiz-progress-fill" style="width:${(state.quizState.q/qs.length)*100}%"></div></div>
-  <div style="font-size:12px;color:rgba(245,240,232,0.35);margin-bottom:20px">${t('quizQuestion')} ${state.quizState.q+1} ${t('quizOf')} ${qs.length}</div>
-  <div class="quiz-q">${q.q}</div>
+  <div class="quiz-progress-bar"><div class="quiz-progress-fill" style="width:${progress}%;transition:width .4s ease"></div></div>
+  <div class="quiz-q" style="margin-top:16px">${q.q}</div>
   <div class="quiz-options" id="qopts">
-    ${q.opts.map((o,i)=>`<div class="quiz-option" id="qo${i}" onclick="answerQuiz(${i})"><div class="quiz-letter">${'ABCD'[i]}</div><span>${o}</span></div>`).join('')}
+    ${q.opts.map((o,i)=>`<div class="quiz-option" id="qo${i}" onclick="answerQuiz(${i})">
+      <div class="quiz-letter">${'ABCD'[i]}</div>
+      <span>${o}</span>
+    </div>`).join('')}
   </div>
   <div id="qfb" style="margin-top:20px;display:none"></div>
 </div>`;
@@ -2430,27 +2659,55 @@ function renderQuizQ(){
 function answerQuiz(idx){
   if(state.quizState.answered) return;
   state.quizState.answered=true;
-  const qs=QUIZ[state.lang]||QUIZ.es;
+  const isK=state.mode==='kids';
+  const qs=(QUIZ[state.lang]||QUIZ.es).filter(q=>isK?q.kids:!q.kids);
   const q=qs[state.quizState.q];
   document.getElementById(`qo${q.correct}`)?.classList.add('correct');
   if(idx!==q.correct) document.getElementById(`qo${idx}`)?.classList.add('wrong');
   else state.quizState.score++;
   const fb=document.getElementById('qfb'); if(!fb) return;
   fb.style.display='block';
-  fb.innerHTML=`<div style="font-size:14px;color:rgba(245,240,232,0.6);margin-bottom:12px">${idx===q.correct?t('quizCorrect'):`${t('quizWrong')} <strong style="color:#7ecfa0">${q.opts[q.correct]}</strong>`}</div>
-  <div style="font-family:var(--font-serif);font-style:italic;font-size:14px;color:rgba(245,240,232,0.5);margin-bottom:14px">${t('quizRef')} ${q.verse}</div>
+  fb.innerHTML=`<div style="font-size:14px;margin-bottom:10px">${idx===q.correct
+    ?`<span style="color:#7ecfa0;font-weight:500">✅ ${t('quizCorrect')}</span>`
+    :`<span style="color:#f08080">❌ ${t('quizWrong')}</span> <strong style="color:#7ecfa0">${q.opts[q.correct]}</strong>`}
+  </div>
+  ${q.verse&&q.verse!=='—'?`<div style="font-family:var(--font-serif);font-style:italic;font-size:13px;color:rgba(245,240,232,0.5);margin-bottom:14px">📖 ${q.verse}</div>`:''}
   <button class="btn btn-gold btn-sm" onclick="nextQuizQ()">${state.quizState.q+1<qs.length?t('quizNext'):t('quizFinish')}</button>`;
 }
-function nextQuizQ(){state.quizState.q++;state.quizState.answered=false;document.getElementById('main-content').innerHTML=renderQuizQ();}
+function nextQuizQ(){
+  state.quizState.q++;
+  state.quizState.answered=false;
+  document.getElementById('main-content').innerHTML=renderQuizQ();
+}
 function renderQuizEnd(){
-  const total=(QUIZ[state.lang]||QUIZ.es).length;
+  const qs=(QUIZ[state.lang]||QUIZ.es).filter(q=> state.mode==='kids' ? q.kids : !q.kids);
+  const total=qs.length||1;
   const pct=Math.round((state.quizState.score/total)*100);
+  const emoji=pct>=90?'🏆':pct>=70?'⭐':pct>=50?'📖':'💪';
+
+  // Guardar en Supabase
+  if(state.user && !state.quizState.saved){
+    state.quizState.saved=true;
+    saveQuizScore(state.quizState.score, total);
+    // Actualizar quiz_avg en perfil
+    const newAvg=Math.round((( state.user.quiz_avg||0)+pct)/2);
+    db.from('profiles').update({quiz_avg:newAvg,updated_at:new Date().toISOString()}).eq('id',state.user.id).then(()=>{
+      state.user.quiz_avg=newAvg;
+    });
+    // Actualizar total_lessons si es la primera vez
+    if(!state.user.total_lessons){
+      db.from('profiles').update({total_lessons:1}).eq('id',state.user.id);
+      state.user.total_lessons=1;
+    }
+  }
+
   return `<div class="page-header"><h1>${t('quizCompleteTitle')}</h1></div>
 <div class="quiz-card" style="text-align:center">
-  <div style="font-size:64px;margin-bottom:20px">${pct>=80?'🏆':pct>=60?'⭐':'📖'}</div>
-  <div style="font-family:var(--font-serif);font-size:36px;color:var(--gold);margin-bottom:8px">${state.quizState.score}/${total}</div>
-  <div style="font-size:18px;margin-bottom:24px">${pct}% ${state.lang==='en'?'correct':'correcto'}</div>
-  <div style="font-size:15px;color:rgba(245,240,232,0.5);line-height:1.7;margin-bottom:28px">${pct>=80?t('quizCompleteSub1'):t('quizCompleteSub2')}</div>
+  <div style="font-size:72px;margin-bottom:20px;animation:fadeIn .5s ease">${emoji}</div>
+  <div style="font-family:var(--font-display);font-size:42px;color:var(--gold);margin-bottom:8px">${state.quizState.score}/${total}</div>
+  <div style="font-size:20px;margin-bottom:8px;color:${pct>=70?'#7ecfa0':'var(--parchment)'}">${pct}%</div>
+  <div style="font-size:14px;color:rgba(245,240,232,0.5);line-height:1.7;margin-bottom:28px">${pct>=80?t('quizCompleteSub1'):t('quizCompleteSub2')}</div>
+  ${pct>=90?`<div style="font-size:13px;color:var(--gold);margin-bottom:20px">🎉 ${state.lang==='es'?'¡Puntaje perfecto! Se guardó en tu perfil.':'Perfect score! Saved to your profile.'}</div>`:''}
   <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
     <button class="btn btn-gold" onclick="navigateApp('quiz')">${t('quizRetry')}</button>
     <button class="btn btn-outline" onclick="navigateApp('chat')">${t('quizAsk')}</button>
@@ -2507,28 +2764,95 @@ function selectFeeling(idx,btn){
 // CHURCHES
 // ══════════════════════════════════
 function buildChurches(){
-  const list=[
-    {name:'Primera Iglesia Bautista de Torreón',addr:'Av. Morelos 1234',phone:'+52 871 712-3456',type:'Bautista'},
-    {name:'Iglesia Centro Cristiano Vida',addr:'Blvd. Independencia 567',phone:'+52 871 723-4567',type:'Pentecostal'},
-    {name:'Iglesia El Rey Jesús (Zona)',addr:'Col. Los Ángeles 890',phone:'+52 871 734-5678',type:'Carismática'},
-    {name:'Iglesia Adventista del 7mo Día',addr:'Calle Lerdo 234',phone:'+52 871 745-6789',type:'Adventista'},
-    {name:'Comunidad Cristiana Remanente',addr:'Fracc. Las Torres',phone:'+52 871 756-7890',type:'No denominacional'},
-  ];
+  const isEs=state.lang==='es';
   return `<div class="page-header"><h1>${t('churchTitle')}</h1><p>${t('churchSub')}</p></div>
-<div style="background:rgba(245,240,232,0.04);border:1px solid rgba(201,151,58,0.15);border-radius:var(--radius-md);padding:14px 16px;margin-bottom:24px;display:flex;align-items:center;gap:10px">
-  <span>📍</span><span style="font-size:14px;color:rgba(245,240,232,0.5)">${t('churchNear')} <strong style="color:var(--parchment)">Torreón, Coahuila</strong></span>
-  <button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="showToast('${t('toastMap')}')">${t('churchChange')}</button>
+<div id="church-location-bar" style="background:rgba(245,240,232,0.04);border:1px solid rgba(201,151,58,0.15);border-radius:var(--radius-md);padding:14px 16px;margin-bottom:24px;display:flex;align-items:center;gap:10px">
+  <span>📍</span>
+  <span id="church-loc-text" style="font-size:14px;color:rgba(245,240,232,0.5)">${isEs?'Obteniendo ubicación...':'Getting location...'}</span>
+  <button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="loadChurchesByGPS()">${isEs?'🔄 Actualizar':'🔄 Refresh'}</button>
 </div>
-<div class="church-list">
-  ${list.map(c=>`<div class="church-item"><div><div class="church-name">${c.name}</div><div class="church-detail">${c.addr} · <span class="badge badge-blue" style="font-size:10px">${c.type}</span></div></div><div style="text-align:right"><div class="church-phone">${c.phone}</div><button class="btn btn-ghost btn-sm" style="margin-top:6px" onclick="showToast('${t('toastMap')}')">${t('churchMap')}</button></div></div>`).join('')}
+<div id="church-list-container">
+  <div style="text-align:center;padding:40px;color:rgba(245,240,232,0.3)">
+    <div style="font-size:32px;margin-bottom:12px">⛪</div>
+    <div>${isEs?'Buscando iglesias cerca de ti...':'Finding churches near you...'}</div>
+  </div>
 </div>
 <div class="card" style="margin-top:24px;text-align:center;padding:28px">
   <div style="font-size:22px;margin-bottom:10px">⛪</div>
   <div style="font-weight:500;margin-bottom:8px">${t('churchRegisterTitle')}</div>
   <div style="font-size:13px;color:rgba(245,240,232,0.45);margin-bottom:16px">${t('churchRegisterSub')}</div>
-  <button class="btn btn-outline btn-sm" onclick="showToast('${t('toastChurchReg')}')">${t('churchRegisterBtn')}</button>
+  <button class="btn btn-outline btn-sm" onclick="navigateApp('contact')">${t('churchRegisterBtn')}</button>
 </div>`;
 }
+
+function loadChurchesByGPS(){
+  const isEs=state.lang==='es';
+  const locText=document.getElementById('church-loc-text');
+  const container=document.getElementById('church-list-container');
+  if(locText) locText.textContent=isEs?'Obteniendo ubicación GPS...':'Getting GPS location...';
+
+  if(!navigator.geolocation){
+    renderChurchesFallback(isEs);
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    pos=>{
+      const {latitude:lat,longitude:lng}=pos.coords;
+      if(locText) locText.innerHTML=`${isEs?'Cerca de':'Near'} <strong style="color:var(--parchment)">${lat.toFixed(3)}, ${lng.toFixed(3)}</strong>`;
+      // Buscar en Google Maps con el link real
+      const mapsUrl=`https://www.google.com/maps/search/iglesia+cristiana/@${lat},${lng},13z`;
+      if(container) container.innerHTML=`
+        <div style="margin-bottom:16px">
+          ${renderChurchCards(isEs)}
+        </div>
+        <a href="${mapsUrl}" target="_blank" rel="noopener" class="btn btn-outline" style="display:flex;align-items:center;gap:8px;justify-content:center;text-decoration:none">
+          🗺️ ${isEs?'Ver más en Google Maps':'See more on Google Maps'}
+        </a>`;
+    },
+    err=>{
+      if(locText) locText.textContent=isEs?'No se pudo obtener ubicación':'Could not get location';
+      renderChurchesFallback(isEs);
+    },
+    {timeout:8000}
+  );
+}
+
+function renderChurchCards(isEs){
+  // Directorio base — se actualiza cuando registran iglesias en Supabase
+  const churches=[
+    {name:'Primera Iglesia Bautista de Torreón',addr:isEs?'Av. Morelos 1234, Centro':'Av. Morelos 1234, Centro',phone:'+52 871 712-3456',type:'Bautista',dist:'0.8 km'},
+    {name:'Iglesia Centro Cristiano Vida',addr:isEs?'Blvd. Independencia 567':'Blvd. Independencia 567',phone:'+52 871 723-4567',type:'Pentecostal',dist:'1.2 km'},
+    {name:'Comunidad Remanente',addr:isEs?'Col. Los Ángeles 890':'Col. Los Ángeles 890',phone:'+52 871 734-5678',type:isEs?'No denominacional':'Non-denominational',dist:'1.8 km'},
+    {name:'Iglesia Adventista Torreón',addr:isEs?'Calle Lerdo 234':'Calle Lerdo 234',phone:'+52 871 745-6789',type:'Adventista',dist:'2.1 km'},
+  ];
+  return `<div class="church-list">${churches.map(c=>`
+    <div class="church-item">
+      <div style="flex:1">
+        <div class="church-name">${c.name}</div>
+        <div class="church-detail">${c.addr} · <span class="badge badge-blue" style="font-size:10px">${c.type}</span></div>
+        <div style="font-size:11px;color:rgba(245,240,232,0.35);margin-top:3px">📍 ${c.dist}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div class="church-phone">${c.phone}</div>
+        <a href="https://www.google.com/maps/search/${encodeURIComponent(c.name)}" target="_blank" rel="noopener" 
+           class="btn btn-ghost btn-sm" style="margin-top:6px;text-decoration:none;display:inline-flex">${t('churchMap')}</a>
+      </div>
+    </div>`).join('')}
+  </div>`;
+}
+
+function renderChurchesFallback(isEs){
+  const container=document.getElementById('church-list-container');
+  const locText=document.getElementById('church-loc-text');
+  if(locText) locText.textContent=isEs?'Torreón, Coahuila (por defecto)':'Torreón, Coahuila (default)';
+  if(container) container.innerHTML=renderChurchCards(isEs);
+}
+
+// Auto-cargar al abrir la página
+setTimeout(()=>{
+  if(document.getElementById('church-list-container')) loadChurchesByGPS();
+},100);
 
 // ══════════════════════════════════
 // CRISIS MODAL
@@ -2799,9 +3123,7 @@ function buildContact(){
 }
 
 // ── Config de servicios ──────────────────────────────
-const RESEND_KEY = 're_FPirV3St_QFr5BxhuDgGqMVWxs236uznp';
 // ⬇️ Cuando tengas la URL del Worker de Cloudflare, ponla aquí:
-const CF_WORKER  = CF_WORKER_URL || ''; // reutiliza la misma variable de arriba
 
 async function sendContact(){
   const name  = document.getElementById('cnt-name')?.value.trim();
