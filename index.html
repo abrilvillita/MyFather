@@ -2201,9 +2201,39 @@ function rebuildUI(){
 // ══════════════════════════════════
 // CHECKOUT
 // ══════════════════════════════════
-function handleCheckout(plan){
-  if(!state.user&&plan!=='free'){navigate('signup');return;}
-  showToast(t('toastCheckout'));
+async function handleCheckout(plan){
+  if(!state.user){ navigate('signup'); return; }
+  if(plan==='free'){ showToast(state.lang==='es'?'Ya tienes acceso gratuito ✓':'You already have free access ✓'); return; }
+  if(plan==='church'){ navigateApp('churches'); return; }
+  showToast(state.lang==='es'?'Conectando con MercadoPago...':'Connecting to MercadoPago...');
+  try{
+    const r = await fetch(`${CF}/mp/create-pref`,{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ plan, user_id: state.user.id, lang: state.lang })
+    });
+    const d = await r.json();
+    if(d.error) throw new Error(d.error);
+    window.location.href = d.init_point;
+  }catch(e){
+    showToast(state.lang==='es'?'Error al conectar con MercadoPago':'MercadoPago connection error');
+    console.error(e);
+  }
+}
+
+async function buyItem(itemId){
+  if(!state.user){ navigate('login'); return; }
+  showToast(state.lang==='es'?'Procesando...':'Processing...');
+  try{
+    const r = await fetch(`${CF}/mp/store`,{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ item_id: itemId, user_id: state.user.id })
+    });
+    const d = await r.json();
+    if(d.error) throw new Error(d.error);
+    window.location.href = d.init_point;
+  }catch(e){
+    showToast(state.lang==='es'?'Error al procesar':'Processing error');
+  }
 }
 
 // ══════════════════════════════════
@@ -2222,10 +2252,32 @@ function attachGlobalEvents(){
   document.addEventListener('keydown',e=>{if(e.key==='Escape')hideCrisis();});
 }
 
+
 // ══════════════════════════════════
 // INIT
 // ══════════════════════════════════
-buildApp();
+
+// Manejar retorno de MercadoPago
+(function(){
+  const p = new URLSearchParams(window.location.search);
+  const pay = p.get('payment');
+  if(!pay) return;
+  window.history.replaceState({},'',' ');
+  setTimeout(()=>{
+    if(pay==='success'){
+      const plan = p.get('plan');
+      const item = p.get('item');
+      if(plan) showToast(state.lang==='es'?`✅ ¡Plan activado! Puede tardar unos segundos en reflejarse.`:`✅ Plan activated! It may take a few seconds to reflect.`);
+      else if(item) showToast(state.lang==='es'?'✅ ¡Compra exitosa!':'✅ Purchase successful!');
+    } else if(pay==='failure'){
+      showToast(state.lang==='es'?'El pago no se completó. Intenta de nuevo.':'Payment not completed. Please try again.');
+    } else if(pay==='pending'){
+      showToast(state.lang==='es'?'Pago pendiente — te avisaremos cuando se confirme.':'Payment pending — we\'ll notify you when confirmed.');
+    }
+  }, 1800);
+})();
+
+initSupabase();
 
   </script>
 </body>
