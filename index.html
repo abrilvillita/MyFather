@@ -346,11 +346,6 @@ body {
 .message.user { flex-direction: row-reverse; }
 
 @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-@keyframes bounceIn { 0%{transform:scale(0.8);opacity:0} 60%{transform:scale(1.05)} 100%{transform:scale(1);opacity:1} }
-@keyframes streakPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
-@keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
-@keyframes kidsGlow { 0%,100%{box-shadow:0 0 0 0 rgba(107,189,227,0.3)} 50%{box-shadow:0 0 0 8px rgba(107,189,227,0)} }
 
 .msg-avatar {
   width: 36px; height: 36px; border-radius: 50%;
@@ -675,28 +670,19 @@ body {
    KIDS MODE — Overrides
 ══════════════════════════════════ */
 body.kids-mode {
-  background: linear-gradient(135deg, #0d1b2a 0%, #1a2a3a 50%, #0d1f18 100%);
+  background: #1a2a4a;
   font-family: 'DM Sans', sans-serif;
 }
-body.kids-mode .nav { background: rgba(13,27,42,0.97); border-color: rgba(107,189,227,0.25); border-bottom-width: 2px; }
-body.kids-mode .nav-logo { color: var(--kids-sky); font-size: 20px; }
+body.kids-mode .nav { background: rgba(26,42,74,0.95); border-color: rgba(107,189,227,0.2); }
+body.kids-mode .nav-logo { color: var(--kids-sky); }
 body.kids-mode .sidebar { border-color: rgba(107,189,227,0.15); }
 body.kids-mode .sidebar-item:hover, body.kids-mode .sidebar-item.active { color: var(--kids-sky); background: rgba(107,189,227,0.1); }
-body.kids-mode .stat-value { color: var(--kids-sun); }
-body.kids-mode .lesson-title { color: var(--kids-sky); }
-body.kids-mode .stat-card { border-color: rgba(107,189,227,0.2); border-radius: 16px; }
-body.kids-mode .card { border-color: rgba(107,189,227,0.15); border-radius: 18px; }
-body.kids-mode .chat-input:focus { border-color: var(--kids-sky); box-shadow: 0 0 0 3px rgba(107,189,227,0.15); }
-body.kids-mode .btn-gold { background: var(--kids-sun); color: #1a1410; border-radius: 40px; }
-body.kids-mode .btn-gold:hover { background: #ffe599; transform: translateY(-2px) scale(1.03); }
-body.kids-mode .page-header h1 { font-family: var(--font-body); font-weight: 600; font-size: 26px; color: var(--kids-sky); }
-body.kids-mode .lesson-card.kids-card { animation: kidsGlow 3s ease-in-out infinite; border-radius: 20px; }
-body.kids-mode .lesson-card.kids-card:hover { transform: translateY(-4px) scale(1.02); border-color: var(--kids-sky); }
-body.kids-mode .lesson-thumb { background: linear-gradient(135deg,rgba(107,189,227,0.12),rgba(120,200,122,0.12)); }
-body.kids-mode .quiz-card { border-radius: 20px; border-color: rgba(107,189,227,0.25); }
-body.kids-mode .quiz-option { border-radius: 14px; }
-body.kids-mode .quiz-option:hover { border-color: var(--kids-sky); background: rgba(107,189,227,0.1); }
-body.kids-mode .msg-bubble { border-radius: 18px; font-size: 16px; line-height: 1.8; }
+body.kids-mode .stat-value, body.kids-mode .lesson-title { color: var(--kids-sun); }
+body.kids-mode .card { border-color: rgba(107,189,227,0.2); }
+body.kids-mode .chat-input:focus { border-color: var(--kids-sky); }
+body.kids-mode .btn-gold { background: var(--kids-sun); }
+body.kids-mode .btn-gold:hover { background: #ffe599; }
+body.kids-mode .page-header h1 { font-family: var(--font-body); font-weight: 500; }
 
 /* Kids stars background */
 body.kids-mode .hero-bg {
@@ -824,231 +810,108 @@ body.kids-mode .hero-bg {
   <div id="app"></div>
   <script>
 // ═══════════════════════════════════════════════════════
-// MYFATHER — Full App v2 + Supabase
+// MYFATHER — Full App v2
+// Fixes: auth gate, admin separate, full i18n, all features
 // ═══════════════════════════════════════════════════════
 
-// ── Supabase singleton (evita warning de múltiples instancias) ──
-const SUPA_URL  = 'https://eumxuuvtixkojkjuzyyo.supabase.co';
-const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV1bXh1dXZ0aXhrb2pranV6eXlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NDQ2NDksImV4cCI6MjA5MDAyMDY0OX0.srYdofHSEBQby4QKpBKeZ0BkSETl2H89UpupeUqYD7Q';
-if(!window.__mfDb){
-  window.__mfDb = supabase.createClient(SUPA_URL, SUPA_ANON, {
-    auth: { storageKey: 'mf-auth' }  // key única, evita colisión con otras apps
-  });
-}
+const SUPABASE_URL  = 'https://eumxuuvtixkojkjuzyyo.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV1bXh1dXZ0aXhrb2pranV6eXlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NDQ2NDksImV4cCI6MjA5MDAyMDY0OX0.srYdofHSEBQby4QKpBKeZ0BkSETl2H89UpupeUqYD7Q';
+const CF = 'https://myfather-api.mirandavilla341.workers.dev';
+
+// Supabase singleton
+if(!window.__mfDb) window.__mfDb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON, { auth: { storageKey:'mf-auth' }});
 const db = window.__mfDb;
 
 const state = {
-  user:        null,   // { id, email, name, plan, streak, account_type, coins }
+  user:        null,   // { id, email, name, plan, streak, account_type, coins, joined_at, extra_msgs }
   supaSession: null,
   mode:        'adult',
-  lang:        'es',
+  lang:        localStorage.getItem('mf-lang')||'es',
   page:        'landing',
   streak:      0,
   chatHistory: [],
   chatSessionId: null,
-  quizState:   { q: 0, score: 0, answered: false },
-  msgThisMonth: 0,   // mensajes IA usados este mes
+  quizState:   { q:0, score:0, answered:false, saved:false },
+  msgThisMonth: 0,
+  contentCache: { verse:null, quiz:[], devotional:null, reading:null },
 };
 
-// ── Supabase Auth helpers ────────────────────────────
-async function supaSignUp(email, pass, name, accountType){
-  const { data, error } = await db.auth.signUp({
-    email, password: pass,
-    options: { data: { full_name: name, account_type: accountType, lang: state.lang } }
-  });
-  if(error) throw error;
+// Límites por plan
+const PLAN_LIMITS = { free:5, basic:60, premium:99999, family:99999, church:99999 };
+function msgLimit(){ return PLAN_LIMITS[state.user?.plan||'free']||5; }
+function msgsLeft(){ 
+  const extra = state.user?.extra_msgs||0;
+  return Math.max(0, msgLimit() + extra - state.msgThisMonth); 
+}
+function canChat(){ return state.user && msgsLeft() > 0; }
+
+// ── Días desde que se unió el usuario ──
+function daysSinceJoined(){
+  if(!state.user?.joined_at) return 0;
+  return Math.floor((Date.now()-new Date(state.user.joined_at))/(1000*60*60*24));
+}
+
+// ── Supabase helpers ──
+async function loadProfile(uid){
+  const { data } = await db.from('profiles').select('*').eq('id',uid).single();
   return data;
 }
-
-async function supaLogin(email, pass){
-  const { data, error } = await db.auth.signInWithPassword({ email, password: pass });
-  if(error) throw error;
-  return data;
-}
-
-async function supaLogout(){
-  await db.auth.signOut();
-  state.user = null;
-  state.supaSession = null;
-  state.chatHistory = [];
-  state.chatSessionId = null;
-}
-
-async function loadProfile(userId){
-  const { data } = await db.from('profiles').select('*').eq('id', userId).single();
-  return data;
-}
-
-// ── Límites de mensajes IA por plan ─────────────────
-const PLAN_MSG_LIMITS = { free: 10, basic: 60, premium: 99999, family: 99999, church: 99999 };
-
-function getMsgLimit(){ return PLAN_MSG_LIMITS[state.user?.plan||'free'] || 10; }
-function canSendMsg(){
-  if(!state.user) return false;
-  return state.msgThisMonth < getMsgLimit();
-}
-function getMsgRemaining(){ return Math.max(0, getMsgLimit() - state.msgThisMonth); }
-
-async function loadMsgCount(userId){
-  // Contar mensajes del mes actual desde chat_sessions
+async function countMsgsThisMonth(uid){
   const start = new Date(); start.setDate(1); start.setHours(0,0,0,0);
   try {
     const { count } = await db.from('chat_sessions')
-      .select('*', { count:'exact', head:true })
-      .eq('user_id', userId)
-      .gte('created_at', start.toISOString());
-    state.msgThisMonth = count || 0;
-  } catch { state.msgThisMonth = 0; }
+      .select('*',{count:'exact',head:true})
+      .eq('user_id',uid).gte('created_at',start.toISOString());
+    state.msgThisMonth = count||0;
+  } catch{ state.msgThisMonth=0; }
 }
-async function logCrisis(type, triggerText){
-  try {
-    await db.from('crisis_alerts').insert({
-      user_id: state.user?.id || null,
-      alert_type: type,
-      trigger_text: triggerText?.substring(0,200),
-      lang: state.lang,
-      mode: state.mode
-    });
-  } catch(e){ console.warn('crisis log failed', e); }
-}
-
-// ── Quiz score saver ─────────────────────────────────
-async function saveQuizScore(score, total){
-  if(!state.user) return;
-  try {
-    await db.from('quiz_scores').insert({
-      user_id: state.user.id,
-      score, total,
-      lang: state.lang,
-      mode: state.mode
-    });
-  } catch(e){ console.warn('quiz save failed', e); }
-}
-
-// ── Chat session persistence ─────────────────────────
-async function saveChatMessage(userMsg, aiReply){
-  if(!state.user) return;
-  try {
-    if(!state.chatSessionId){
-      const { data } = await db.from('chat_sessions').insert({
-        user_id: state.user.id,
-        mode: state.mode,
-        lang: state.lang,
-        messages: [{ role:'user', content:userMsg },{ role:'assistant', content:aiReply }]
-      }).select('id').single();
-      if(data) state.chatSessionId = data.id;
-    } else {
-      const msgs = [...state.chatHistory];
-      await db.from('chat_sessions')
-        .update({ messages: msgs, updated_at: new Date().toISOString() })
-        .eq('id', state.chatSessionId);
-    }
-  } catch(e){ console.warn('chat save failed', e); }
-}
-
-// ── Haven session logger ─────────────────────────────
-async function logHaven(feeling){
-  if(!state.user) return;
-  try {
-    await db.from('haven_sessions').insert({
-      user_id: state.user.id,
-      feeling,
-      lang: state.lang
-    });
-  } catch(e){ console.warn('haven log failed', e); }
-}
-
-// ── Init: restore session if exists ──────────────────
-// ── Cache de contenido desde Supabase ────────────────
-const contentCache = { verses:[], quiz:[], devotionals:[], readingPlan:[], lessons:[] };
-
 async function loadContentFromDB(){
   try {
-    // Versículo de hoy
-    const dayOfYear = Math.floor((new Date() - new Date(new Date().getFullYear(),0,0)) / 86400000);
-    const { data: verses } = await db.from('daily_verses').select('*').eq('day_of_year', dayOfYear).single();
-    if(verses) contentCache.verses = [verses];
-
-    // Quiz questions
-    const { data: quiz } = await db.from('quiz_questions').select('*').order('id').limit(50);
-    if(quiz?.length) contentCache.quiz = quiz;
-
-    // Devocional de esta semana
-    const weekNum = Math.ceil(dayOfYear / 7);
-    const { data: dev } = await db.from('devotionals').select('*').eq('week_num', weekNum).single();
-    if(dev) contentCache.devotionals = [dev];
-
-    // Plan de lectura del día
-    const { data: reading } = await db.from('reading_plan').select('*').eq('day_num', dayOfYear).single();
-    if(reading) contentCache.readingPlan = [reading];
-
-  } catch(e){ console.warn('Content load error (usando fallback local):', e?.message); }
-}
-
-function getTodayVerseFromDB(){
-  if(contentCache.verses?.length){
-    const v = contentCache.verses[0];
-    return state.lang==='en'
-      ? { v: v.verse_en, r: v.ref_en }
-      : { v: v.verse_es, r: v.ref_es };
-  }
-  return getTodayVerse(); // fallback local
-}
-
-function getTodayDevotionalFromDB(){
-  if(contentCache.devotionals?.length){
-    const d = contentCache.devotionals[0];
-    return state.lang==='en'
-      ? { verse: d.verse_en, ref: d.ref_en, body: d.body_en, reflection: d.reflection_en, title: d.title_en }
-      : { verse: d.verse_es, ref: d.ref_es, body: d.body_es, reflection: d.reflection_es, title: d.title_es };
-  }
-  return DEVOTIONAL[state.lang]||DEVOTIONAL.es; // fallback
-}
-
-function getTodayReadingFromDB(){
-  if(contentCache.readingPlan?.length){
-    const r = contentCache.readingPlan[0];
-    return state.lang==='en'
-      ? { book: r.book_en, chapter: r.chapter, title: r.title_en, text: r.passage_en }
-      : { book: r.book_es, chapter: r.chapter, title: r.title_es, text: r.passage_es };
-  }
-  return null;
+    const day = Math.floor((Date.now()-new Date(new Date().getFullYear(),0,0))/86400000);
+    const week = Math.ceil(day/7);
+    const [vRes,qRes,dRes,rRes] = await Promise.all([
+      db.from('daily_verses').select('*').eq('day_of_year',day).single(),
+      db.from('quiz_questions').select('*').limit(40),
+      db.from('devotionals').select('*').eq('week_num',week).single(),
+      db.from('reading_plan').select('*').eq('day_num',day).single(),
+    ]);
+    if(vRes.data) state.contentCache.verse = vRes.data;
+    if(qRes.data?.length) state.contentCache.quiz = qRes.data;
+    if(dRes.data) state.contentCache.devotional = dRes.data;
+    if(rRes.data) state.contentCache.reading = rRes.data;
+  } catch(e){ console.warn('DB content fallback:', e?.message); }
 }
 
 async function initSupabase(){
-  const { data: { session } } = await db.auth.getSession();
+  const { data:{session} } = await db.auth.getSession();
   if(session){
     state.supaSession = session;
     const profile = await loadProfile(session.user.id);
     if(profile){
       state.user = {
-        id: session.user.id,
-        email: session.user.email,
-        name: profile.full_name,
-        plan: profile.plan,
-        streak: profile.streak,
-        account_type: profile.account_type,
-        coins: profile.coins || 0,
-        total_lessons: profile.total_lessons || 0,
-        total_verses: profile.total_verses || 0,
-        quiz_avg: profile.quiz_avg || 0,
+        id:           session.user.id,
+        email:        session.user.email,
+        name:         profile.full_name,
+        plan:         profile.plan||'free',
+        streak:       profile.streak||0,
+        account_type: profile.account_type||'adult',
+        coins:        profile.coins||0,
+        extra_msgs:   profile.extra_msgs||0,
+        joined_at:    profile.created_at,
+        quiz_avg:     profile.quiz_avg||0,
       };
-      state.streak = profile.streak;
-      state.lang   = profile.lang || 'es';
-      await loadMsgCount(session.user.id);
+      state.streak = profile.streak||0;
+      state.lang   = profile.lang||state.lang;
+      document.documentElement.lang = state.lang;
+      await countMsgsThisMonth(session.user.id);
     }
   }
-  // Cargar contenido de Supabase en paralelo (no bloquea el inicio)
-  loadContentFromDB().catch(()=>{});
+  loadContentFromDB(); // paralelo, no bloquea
   buildApp();
 }
 
-db.auth.onAuthStateChange((event, session) => {
-  if(event === 'SIGNED_OUT'){
-    state.user = null;
-    state.supaSession = null;
-    navigate('landing');
-  }
+db.auth.onAuthStateChange((ev,session)=>{
+  if(ev==='SIGNED_OUT'){ state.user=null; state.supaSession=null; navigate('landing'); }
 });
 
 // ══════════════════════════════════════════════════════
@@ -1081,7 +944,7 @@ const T = {
     authTypeFamily:'Familia (hasta 5 miembros)', authTypeChurch:'Iglesia / Organización',
     authLoginBtn:'Iniciar sesión', authSignupBtn:'Crear cuenta',
     authGoSignup:'¿No tienes cuenta? Regístrate gratis', authGoLogin:'¿Ya tienes cuenta? Inicia sesión',
-    authBack:'← Volver al inicio', authHint:'',
+    authBack:'← Volver al inicio', authHint:'Prueba: demo@myfather.app / demo123',
     authLoginError:'Ingresa un email válido y contraseña de al menos 6 caracteres.',
     authSignupSuccess:'¡Cuenta creada! Bienvenido/a.',
     navHome:'Inicio', navChat:'Tutor IA', navLessons:'Lecciones',
@@ -1155,30 +1018,10 @@ const T = {
     crisisSub:'Si estás en peligro, comunícate ahora. Son gratuitos y confidenciales.',
     crisisAlso:'También puedes hablar con un pastor de tu iglesia local.',
     crisisCall:'📞 Llamar ahora', crisisClose:'Cerrar',
-    toastMarked:'¡Lectura marcada! 🎉 Racha actualizada', toastShared:'Devocional compartido',
+    toastMarked:'¡Lectura marcada! 🎉 Racha: 16 días', toastShared:'Devocional compartido',
     toastSaved:'Guardado en favoritos', toastNote:'Nota guardada',
     toastMap:'Abriendo en Maps...', toastChurchReg:'Próximamente',
-    toastLessonSoon:'¡Lección iniciando!', toastCheckout:'Redirigiendo a MercadoPago...',
-    toastCoinsBought:'¡Luces de Fe compradas! ✨',
-    navStore:'Tienda', storeTitle:'Tienda de Luces de Fe',
-    storeSub:'Invierte en tu camino espiritual',
-    storeBalance:'Tu saldo:',storeCoinName:'Luces de Fe',
-    forgotPass:'¿Olvidaste tu contraseña?',
-    forgotPassTitle:'Recuperar contraseña',
-    forgotPassSub:'Te enviaremos un enlace a tu correo',
-    forgotPassBtn:'Enviar enlace',
-    forgotPassSent:'¡Enviado! Revisa tu bandeja de entrada.',
-    contactTitle:'Contacto & Soporte',
-    contactSub:'¿Tienes preguntas, errores o quieres reportar algo?',
-    contactName:'Tu nombre',contactEmail:'Tu correo',
-    contactType:'Tipo de mensaje',contactMsg:'Tu mensaje',
-    contactTypeQ:'Pregunta general',contactTypeBug:'Reporte de error',
-    contactTypeReport:'Denuncia / Contenido inapropiado',
-    contactTypeChurch:'Quiero registrar mi iglesia',
-    contactSend:'Enviar mensaje',contactSent:'¡Mensaje enviado! Te respondemos en 24-48h.',
-    privacyTitle:'Política de Privacidad',
-    termsTitle:'Términos y Condiciones',
-    limitFreeChat:'Has alcanzado el límite de mensajes gratuitos este mes.',
+    toastLessonSoon:'Animaciones próximamente — contenido cargando...', toastCheckout:'Redirigiendo a Stripe...',
   },
   en: {
     appTagline:'FAITH PLATFORM', pricing:'Plans', signIn:'Sign in', signUp:'Sign up',
@@ -1206,7 +1049,7 @@ const T = {
     authTypeFamily:'Family (up to 5 members)', authTypeChurch:'Church / Organization',
     authLoginBtn:'Sign in', authSignupBtn:'Create account',
     authGoSignup:"Don't have an account? Sign up free", authGoLogin:'Already have an account? Sign in',
-    authBack:'← Back to home', authHint:'',
+    authBack:'← Back to home', authHint:'Try: demo@myfather.app / demo123',
     authLoginError:'Enter a valid email and password of at least 6 characters.',
     authSignupSuccess:'Account created! Welcome.',
     navHome:'Home', navChat:'AI Tutor', navLessons:'Lessons',
@@ -1280,29 +1123,10 @@ const T = {
     crisisSub:'If you are in danger, please reach out now. Free and confidential.',
     crisisAlso:'You can also talk to your local church pastor.',
     crisisCall:'📞 Call now', crisisClose:'Close',
-    toastMarked:'Reading marked! 🎉 Streak updated', toastShared:'Devotional shared',
+    toastMarked:'Reading marked! 🎉 Streak: 16 days', toastShared:'Devotional shared',
     toastSaved:'Saved to favorites', toastNote:'Note saved',
     toastMap:'Opening in Maps...', toastChurchReg:'Coming soon',
-    toastLessonSoon:'Lesson starting!', toastCheckout:'Redirecting to MercadoPago...',
-    toastCoinsBought:'Faith Lights purchased! ✨',
-    navStore:'Store', storeTitle:'Faith Lights Store',
-    storeSub:'Invest in your spiritual journey',
-    storeBalance:'Your balance:',storeCoinName:'Faith Lights',
-    forgotPass:'Forgot your password?',
-    forgotPassTitle:'Reset password',
-    forgotPassSub:"We'll send a link to your email",
-    forgotPassBtn:'Send link',
-    forgotPassSent:'Sent! Check your inbox.',
-    contactTitle:'Contact & Support',
-    contactSub:'Questions, errors or want to report something?',
-    contactName:'Your name',contactEmail:'Your email',
-    contactType:'Message type',contactMsg:'Your message',
-    contactTypeQ:'General question',contactTypeBug:'Bug report',
-    contactTypeReport:'Report / Inappropriate content',
-    contactTypeChurch:'I want to register my church',
-    contactSend:'Send message',contactSent:'Message sent! We reply within 24-48h.',
-    privacyTitle:'Privacy Policy',
-    termsTitle:'Terms & Conditions',
+    toastLessonSoon:'Animations coming soon — loading content...', toastCheckout:'Redirecting to Stripe...',
   }
 };
 function t(k){ return (T[state.lang]||T.es)[k] ?? k; }
@@ -1324,116 +1148,49 @@ const crisisLines = [
 
 const LESSONS = {
   es:[
-    // ADULTOS
-    {id:1,title:'Génesis: El principio de todo',emoji:'🌍',duration:'18 min',level:'Básico',progress:100,kids:false,desc:'La creación, Adán y Eva, la caída y sus consecuencias eternas.'},
-    {id:2,title:'El Sermón del Monte',emoji:'⛰️',duration:'24 min',level:'Intermedio',progress:65,kids:false,desc:'Las Bienaventuranzas y las enseñanzas más radicales de Jesús.'},
-    {id:3,title:'Los Salmos: Oración y adoración',emoji:'🎵',duration:'20 min',level:'Básico',progress:0,kids:false,desc:'El libro de poesía más grande de la humanidad como guía espiritual.'},
-    {id:4,title:'Las Cartas de Pablo',emoji:'📜',duration:'30 min',level:'Avanzado',progress:0,kids:false,desc:'Romanos, Corintios, Gálatas — el corazón de la teología cristiana.'},
-    {id:5,title:'Proverbios: Sabiduría práctica',emoji:'💡',duration:'22 min',level:'Básico',progress:30,kids:false,desc:'31 capítulos, 31 días: sabiduría para cada área de la vida.'},
-    {id:6,title:'El Apocalipsis',emoji:'🌟',duration:'35 min',level:'Avanzado',progress:0,kids:false,desc:'El libro más malinterpretado de la Biblia, explicado con claridad.'},
-    {id:7,title:'La Trinidad: Un Dios, tres personas',emoji:'🕊️',duration:'28 min',level:'Avanzado',progress:0,kids:false,desc:'Padre, Hijo y Espíritu Santo — el misterio central del cristianismo.'},
-    {id:8,title:'Los Diez Mandamientos hoy',emoji:'📋',duration:'25 min',level:'Intermedio',progress:0,kids:false,desc:'Cómo la ley de Moisés sigue siendo relevante en el siglo XXI.'},
-    {id:9,title:'El libro de Job: El sufrimiento y Dios',emoji:'❓',duration:'32 min',level:'Avanzado',progress:0,kids:false,desc:'La pregunta más difícil de la fe: ¿por qué sufre el justo?'},
-    {id:10,title:'Los Evangelios comparados',emoji:'📖',duration:'40 min',level:'Avanzado',progress:0,kids:false,desc:'Mateo, Marcos, Lucas y Juan: cuatro perspectivas del mismo Jesús.'},
-    {id:11,title:'Isaías: El profeta mesiánico',emoji:'🔮',duration:'26 min',level:'Intermedio',progress:0,kids:false,desc:'Las profecías sobre el Mesías escritas 700 años antes de Jesús.'},
-    {id:12,title:'El fruto del Espíritu',emoji:'🍇',duration:'20 min',level:'Básico',progress:0,kids:false,desc:'Amor, gozo, paz... Cómo vivir Gálatas 5:22 en el día a día.'},
-    {id:13,title:'Oraciones bíblicas: aprender a orar',emoji:'🙏',duration:'18 min',level:'Básico',progress:0,kids:false,desc:'Padre Nuestro, oración de Jabes, Salmo 23 — oraciones que transforman.'},
-    {id:14,title:'La Última Cena y la Eucaristía',emoji:'🍷',duration:'22 min',level:'Intermedio',progress:0,kids:false,desc:'La pascua judía, el nuevo pacto y el significado de la comunión.'},
-    {id:15,title:'Daniel y la fe en tiempos oscuros',emoji:'🦁',duration:'24 min',level:'Intermedio',progress:0,kids:false,desc:'Cómo mantener la fe bajo presión — lecciones de Babilonia.'},
-    // NIÑOS
-    {id:101,title:'Noé y el Arca',emoji:'🚢',duration:'10 min',level:'Fácil',progress:100,kids:true,desc:'La historia del hombre que construyó un barco gigante para salvar a los animales.'},
-    {id:102,title:'David y Goliat',emoji:'🗡️',duration:'12 min',level:'Fácil',progress:80,kids:true,desc:'El niño valiente que derrotó al gigante más grande con solo una piedra.'},
-    {id:103,title:'Jonás y la ballena',emoji:'🐋',duration:'9 min',level:'Fácil',progress:0,kids:true,desc:'La aventura del profeta que vivió 3 días dentro de una ballena gigante.'},
-    {id:104,title:'Jesús alimenta a 5,000',emoji:'🍞',duration:'11 min',level:'Fácil',progress:0,kids:true,desc:'Con 5 panes y 2 peces, Jesús hizo un milagro increíble.'},
-    {id:105,title:'Moisés y el Mar Rojo',emoji:'🌊',duration:'13 min',level:'Fácil',progress:0,kids:true,desc:'El día que Dios separó el mar para que su pueblo cruzara.'},
-    {id:106,title:'José y su manto de colores',emoji:'🌈',duration:'14 min',level:'Fácil',progress:0,kids:true,desc:'La historia del soñador que perdonó a sus hermanos y se volvió rey.'},
-    {id:107,title:'La Creación en 7 días',emoji:'✨',duration:'10 min',level:'Fácil',progress:0,kids:true,desc:'¿Cómo hizo Dios el cielo, la tierra, los animales y a nosotros?'},
-    {id:108,title:'Daniel en el foso de los leones',emoji:'🦁',duration:'11 min',level:'Fácil',progress:0,kids:true,desc:'El joven que no tuvo miedo aunque lo echaron con leones hambrientos.'},
-    {id:109,title:'El Hijo Pródigo',emoji:'🏠',duration:'10 min',level:'Fácil',progress:0,kids:true,desc:'La historia más hermosa de amor de papá: siempre te recibo de vuelta.'},
-    {id:110,title:'Zaqueo el cobrador de impuestos',emoji:'🌳',duration:'9 min',level:'Fácil',progress:0,kids:true,desc:'El hombrecito que subió a un árbol y cambió su vida al conocer a Jesús.'},
-    {id:111,title:'La Estrella de Belén',emoji:'⭐',duration:'10 min',level:'Fácil',progress:0,kids:true,desc:'Cómo llegaron los Reyes Magos siguiendo una estrella especial al bebé Jesús.'},
-    {id:112,title:'El Buen Samaritano',emoji:'❤️',duration:'10 min',level:'Fácil',progress:0,kids:true,desc:'La historia de ayudar a alguien aunque sea diferente a ti.'},
+    {id:1,title:'Génesis: El principio de todo',emoji:'🌍',duration:'18 min',level:'Básico',progress:100,kids:false},
+    {id:2,title:'El Sermón del Monte',emoji:'⛰️',duration:'24 min',level:'Intermedio',progress:65,kids:false},
+    {id:3,title:'Los Salmos: Oración y adoración',emoji:'🎵',duration:'20 min',level:'Básico',progress:0,kids:false},
+    {id:4,title:'Las Cartas de Pablo',emoji:'📜',duration:'30 min',level:'Avanzado',progress:0,kids:false},
+    {id:5,title:'Proverbios: Sabiduría práctica',emoji:'💡',duration:'22 min',level:'Básico',progress:30,kids:false},
+    {id:6,title:'El Apocalipsis',emoji:'🌟',duration:'35 min',level:'Avanzado',progress:0,kids:false},
+    {id:7,title:'Noé y el Arca',emoji:'🚢',duration:'10 min',level:'Fácil',progress:100,kids:true},
+    {id:8,title:'David y Goliat',emoji:'🗡️',duration:'12 min',level:'Fácil',progress:80,kids:true},
+    {id:9,title:'Jonás y la ballena',emoji:'🐋',duration:'9 min',level:'Fácil',progress:0,kids:true},
+    {id:10,title:'Jesús alimenta a 5,000',emoji:'🍞',duration:'11 min',level:'Fácil',progress:0,kids:true},
   ],
   en:[
-    {id:1,title:'Genesis: The Beginning of Everything',emoji:'🌍',duration:'18 min',level:'Basic',progress:100,kids:false,desc:'Creation, Adam and Eve, the fall and its eternal consequences.'},
-    {id:2,title:'The Sermon on the Mount',emoji:'⛰️',duration:'24 min',level:'Intermediate',progress:65,kids:false,desc:"The Beatitudes and Jesus's most radical teachings."},
-    {id:3,title:'Psalms: Prayer and Worship',emoji:'🎵',duration:'20 min',level:'Basic',progress:0,kids:false,desc:"Humanity's greatest book of poetry as a spiritual guide."},
-    {id:4,title:"Paul's Letters",emoji:'📜',duration:'30 min',level:'Advanced',progress:0,kids:false,desc:'Romans, Corinthians, Galatians — the heart of Christian theology.'},
-    {id:5,title:'Proverbs: Practical Wisdom',emoji:'💡',duration:'22 min',level:'Basic',progress:30,kids:false,desc:'31 chapters, 31 days: wisdom for every area of life.'},
-    {id:6,title:'The Book of Revelation',emoji:'🌟',duration:'35 min',level:'Advanced',progress:0,kids:false,desc:"The Bible's most misinterpreted book, explained with clarity."},
-    {id:7,title:'The Trinity: One God, Three Persons',emoji:'🕊️',duration:'28 min',level:'Advanced',progress:0,kids:false,desc:"Father, Son and Holy Spirit — Christianity's central mystery."},
-    {id:8,title:'The Ten Commandments Today',emoji:'📋',duration:'25 min',level:'Intermediate',progress:0,kids:false,desc:"How Moses' law remains relevant in the 21st century."},
-    {id:9,title:'Job: Suffering and God',emoji:'❓',duration:'32 min',level:'Advanced',progress:0,kids:false,desc:'The hardest question in faith: why do the righteous suffer?'},
-    {id:10,title:'The Gospels Compared',emoji:'📖',duration:'40 min',level:'Advanced',progress:0,kids:false,desc:'Matthew, Mark, Luke and John: four perspectives on the same Jesus.'},
-    {id:101,title:'Noah and the Ark',emoji:'🚢',duration:'10 min',level:'Easy',progress:100,kids:true,desc:'The man who built a giant boat to save the animals.'},
-    {id:102,title:'David and Goliath',emoji:'🗡️',duration:'12 min',level:'Easy',progress:80,kids:true,desc:'The brave boy who defeated the biggest giant with just one stone.'},
-    {id:103,title:'Jonah and the Whale',emoji:'🐋',duration:'9 min',level:'Easy',progress:0,kids:true,desc:'The prophet who lived 3 days inside a giant whale.'},
-    {id:104,title:'Jesus Feeds 5,000',emoji:'🍞',duration:'11 min',level:'Easy',progress:0,kids:true,desc:'With 5 loaves and 2 fish, Jesus did an incredible miracle.'},
-    {id:105,title:'Moses and the Red Sea',emoji:'🌊',duration:'13 min',level:'Easy',progress:0,kids:true,desc:'The day God split the sea so His people could cross.'},
-    {id:106,title:"Joseph's Coat of Many Colors",emoji:'🌈',duration:'14 min',level:'Easy',progress:0,kids:true,desc:'The story of the dreamer who forgave his brothers and became a ruler.'},
-    {id:107,title:'Creation in 7 Days',emoji:'✨',duration:'10 min',level:'Easy',progress:0,kids:true,desc:'How did God make the sky, the earth, the animals and us?'},
-    {id:108,title:"Daniel in the Lions' Den",emoji:'🦁',duration:'11 min',level:'Easy',progress:0,kids:true,desc:'The young man who had no fear even when thrown with hungry lions.'},
-    {id:109,title:'The Prodigal Son',emoji:'🏠',duration:'10 min',level:'Easy',progress:0,kids:true,desc:"The most beautiful story of a father's love: I always welcome you back."},
-    {id:110,title:'Zacchaeus the Tax Collector',emoji:'🌳',duration:'9 min',level:'Easy',progress:0,kids:true,desc:'The little man who climbed a tree and changed his life by meeting Jesus.'},
+    {id:1,title:'Genesis: The Beginning of Everything',emoji:'🌍',duration:'18 min',level:'Basic',progress:100,kids:false},
+    {id:2,title:'The Sermon on the Mount',emoji:'⛰️',duration:'24 min',level:'Intermediate',progress:65,kids:false},
+    {id:3,title:'Psalms: Prayer and Worship',emoji:'🎵',duration:'20 min',level:'Basic',progress:0,kids:false},
+    {id:4,title:"Paul's Letters",emoji:'📜',duration:'30 min',level:'Advanced',progress:0,kids:false},
+    {id:5,title:'Proverbs: Practical Wisdom',emoji:'💡',duration:'22 min',level:'Basic',progress:30,kids:false},
+    {id:6,title:'The Book of Revelation',emoji:'🌟',duration:'35 min',level:'Advanced',progress:0,kids:false},
+    {id:7,title:'Noah and the Ark',emoji:'🚢',duration:'10 min',level:'Easy',progress:100,kids:true},
+    {id:8,title:'David and Goliath',emoji:'🗡️',duration:'12 min',level:'Easy',progress:80,kids:true},
+    {id:9,title:'Jonah and the Whale',emoji:'🐋',duration:'9 min',level:'Easy',progress:0,kids:true},
+    {id:10,title:'Jesus Feeds 5,000',emoji:'🍞',duration:'11 min',level:'Easy',progress:0,kids:true},
   ]
 };
 
 const QUIZ = {
   es:[
-    {q:'¿Cuántos días duró el diluvio universal?',opts:['40 días y noches','20 días','7 días','100 días'],correct:0,verse:'Génesis 7:4',kids:false},
-    {q:'¿Quién fue el primer rey de Israel?',opts:['David','Salomón','Saúl','Moisés'],correct:2,verse:'1 Samuel 10:1',kids:false},
-    {q:'¿En qué río fue bautizado Jesús?',opts:['Éufrates','Nilo','Jordán','Tigris'],correct:2,verse:'Mateo 3:13',kids:false},
-    {q:'¿Cuántos apóstoles eligió Jesús?',opts:['7','10','14','12'],correct:3,verse:'Lucas 6:13',kids:false},
-    {q:'¿Quién escribió el Apocalipsis?',opts:['Pablo','Pedro','Juan','Lucas'],correct:2,verse:'Apocalipsis 1:9',kids:false},
-    {q:'¿Cuántos libros tiene el Nuevo Testamento?',opts:['27','39','24','31'],correct:0,verse:'—',kids:false},
-    {q:'¿Dónde nació Jesús?',opts:['Nazaret','Jerusalén','Belén','Capernaum'],correct:2,verse:'Lucas 2:4-7',kids:false},
-    {q:'¿Quién traicionó a Jesús?',opts:['Pedro','Judas Iscariote','Tomás','Juan'],correct:1,verse:'Mateo 26:14-15',kids:false},
-    {q:'¿Cuántos libros tiene el Antiguo Testamento?',opts:['27','39','46','33'],correct:1,verse:'—',kids:false},
-    {q:'¿Qué profeta estuvo en el vientre de un gran pez?',opts:['Elías','Eliseo','Jonás','Isaías'],correct:2,verse:'Jonás 1:17',kids:false},
-    {q:'¿Quién construyó el Templo de Jerusalén?',opts:['David','Salomón','Moisés','Abraham'],correct:1,verse:'1 Reyes 6:1',kids:false},
-    {q:'¿Con cuántos panes alimentó Jesús a 5,000?',opts:['3','7','5','10'],correct:2,verse:'Juan 6:9',kids:false},
-    {q:'¿Qué árbol se mencionó en el Jardín del Edén?',opts:['Olivo','Higuera','Del conocimiento del bien y el mal','Cedro'],correct:2,verse:'Génesis 2:9',kids:false},
-    {q:'¿A qué ciudad fue enviado Jonás?',opts:['Babilonia','Nínive','Tiro','Sidón'],correct:1,verse:'Jonás 1:2',kids:false},
-    {q:'¿Quién negó a Jesús tres veces?',opts:['Juan','Judas','Pedro','Tomás'],correct:2,verse:'Mateo 26:75',kids:false},
-    {q:'¿En cuántos días resucitó Jesús?',opts:['1','2','3','7'],correct:2,verse:'Lucas 24:7',kids:false},
-    {q:'¿Quién fue el primer hombre según la Biblia?',opts:['Noé','Abraham','Adán','Moisés'],correct:2,verse:'Génesis 2:7',kids:false},
-    {q:'¿Cuál fue la primera señal milagrosa de Jesús?',opts:['Caminar sobre el agua','Sanar un ciego','Convertir agua en vino','Resucitar a Lázaro'],correct:2,verse:'Juan 2:11',kids:false},
-    {q:'¿Quién escribió la mayoría de los Salmos?',opts:['Moisés','Salomón','David','Ezequías'],correct:2,verse:'Salmo 72:20',kids:false},
-    {q:'¿Cómo se llama el monte donde Moisés recibió los mandamientos?',opts:['Monte Carmelo','Monte Sinaí','Monte de los Olivos','Monte Horeb'],correct:1,verse:'Éxodo 19:20',kids:false},
-    // Niños
-    {q:'¿Quién construyó el arca?',opts:['Abraham','Moisés','Noé','David'],correct:2,verse:'Génesis 6:14',kids:true},
-    {q:'¿Cuántos peces usó Jesús para alimentar a la multitud?',opts:['5','2','10','3'],correct:1,verse:'Juan 6:9',kids:true},
-    {q:'¿Con qué derribó David a Goliat?',opts:['Una espada','Una honda y una piedra','Un arco','Sus puños'],correct:1,verse:'1 Samuel 17:49',kids:true},
-    {q:'¿Cuántos animales entró de cada especie al arca?',opts:['1','5','2','10'],correct:2,verse:'Génesis 6:19',kids:true},
-    {q:'¿Quién era el padre de José el del manto de colores?',opts:['Abraham','Isaac','Jacob','Moisés'],correct:2,verse:'Génesis 37:3',kids:true},
-    {q:'¿Cuántos días y noches estuvo Jonás en el pez?',opts:['1','7','3','40'],correct:2,verse:'Jonás 1:17',kids:true},
-    {q:'¿Cómo se llamaba la madre de Jesús?',opts:['Ana','Sara','María','Débora'],correct:2,verse:'Lucas 1:27',kids:true},
-    {q:'¿En qué ciudad nació Jesús?',opts:['Nazaret','Belén','Jerusalén','Jericó'],correct:1,verse:'Lucas 2:7',kids:true},
-    {q:'¿Qué comida multiplicó Jesús para 5,000 personas?',opts:['Peces y arroz','Panes y peces','Carne y pan','Frutas y peces'],correct:1,verse:'Juan 6:9',kids:true},
-    {q:'¿A quién subió Dios al cielo en un torbellino?',opts:['Moisés','Elías','Isaías','David'],correct:1,verse:'2 Reyes 2:11',kids:true},
+    {q:'¿Cuántos días duró el diluvio universal?',opts:['40 días y noches','20 días','7 días','100 días'],correct:0,verse:'Génesis 7:4'},
+    {q:'¿Quién fue el primer rey de Israel?',opts:['David','Salomón','Saúl','Moisés'],correct:2,verse:'1 Samuel 10:1'},
+    {q:'¿En qué río fue bautizado Jesús?',opts:['Éufrates','Nilo','Jordán','Tigris'],correct:2,verse:'Mateo 3:13'},
+    {q:'¿Cuántos apóstoles eligió Jesús?',opts:['7','10','14','12'],correct:3,verse:'Lucas 6:13'},
+    {q:'¿Quién escribió el Apocalipsis?',opts:['Pablo','Pedro','Juan','Lucas'],correct:2,verse:'Apocalipsis 1:9'},
+    {q:'¿Cuántos libros tiene el Nuevo Testamento?',opts:['27','39','24','31'],correct:0,verse:'—'},
+    {q:'¿Dónde nació Jesús?',opts:['Nazaret','Jerusalén','Belén','Capernaum'],correct:2,verse:'Lucas 2:4-7'},
   ],
   en:[
-    {q:'How many days did the great flood last?',opts:['40 days and nights','20 days','7 days','100 days'],correct:0,verse:'Genesis 7:4',kids:false},
-    {q:'Who was the first king of Israel?',opts:['David','Solomon','Saul','Moses'],correct:2,verse:'1 Samuel 10:1',kids:false},
-    {q:'In which river was Jesus baptized?',opts:['Euphrates','Nile','Jordan','Tigris'],correct:2,verse:'Matthew 3:13',kids:false},
-    {q:'How many apostles did Jesus choose?',opts:['7','10','14','12'],correct:3,verse:'Luke 6:13',kids:false},
-    {q:'Who wrote Revelation?',opts:['Paul','Peter','John','Luke'],correct:2,verse:'Revelation 1:9',kids:false},
-    {q:'How many books are in the New Testament?',opts:['27','39','24','31'],correct:0,verse:'—',kids:false},
-    {q:'Where was Jesus born?',opts:['Nazareth','Jerusalem','Bethlehem','Capernaum'],correct:2,verse:'Luke 2:4-7',kids:false},
-    {q:'Who betrayed Jesus?',opts:['Peter','Judas Iscariot','Thomas','John'],correct:1,verse:'Matthew 26:14-15',kids:false},
-    {q:'How many books are in the Old Testament?',opts:['27','39','46','33'],correct:1,verse:'—',kids:false},
-    {q:'Which prophet was inside a great fish?',opts:['Elijah','Elisha','Jonah','Isaiah'],correct:2,verse:'Jonah 1:17',kids:false},
-    {q:'Who built the Temple in Jerusalem?',opts:['David','Solomon','Moses','Abraham'],correct:1,verse:'1 Kings 6:1',kids:false},
-    {q:'What was Jesus first miracle?',opts:['Walking on water','Healing a blind man','Turning water into wine','Raising Lazarus'],correct:2,verse:'John 2:11',kids:false},
-    {q:'Who wrote most of the Psalms?',opts:['Moses','Solomon','David','Hezekiah'],correct:2,verse:'Psalm 72:20',kids:false},
-    {q:'Who denied Jesus three times?',opts:['John','Judas','Peter','Thomas'],correct:2,verse:'Matthew 26:75',kids:false},
-    {q:'In how many days did Jesus rise from the dead?',opts:['1','2','3','7'],correct:2,verse:'Luke 24:7',kids:false},
-    {q:'Who built the ark?',opts:['Abraham','Moses','Noah','David'],correct:2,verse:'Genesis 6:14',kids:true},
-    {q:'How many fish did Jesus use to feed the crowd?',opts:['5','2','10','3'],correct:1,verse:'John 6:9',kids:true},
-    {q:'What did David use to defeat Goliath?',opts:['A sword','A sling and stone','A bow','His fists'],correct:1,verse:'1 Samuel 17:49',kids:true},
-    {q:"What was Jesus' mother's name?",opts:['Anna','Sarah','Mary','Deborah'],correct:2,verse:'Luke 1:27',kids:true},
-    {q:'In what city was Jesus born?',opts:['Nazareth','Bethlehem','Jerusalem','Jericho'],correct:1,verse:'Luke 2:7',kids:true},
-    {q:'How many days was Jonah inside the fish?',opts:['1','7','3','40'],correct:2,verse:'Jonah 1:17',kids:true},
+    {q:'How many days did the great flood last?',opts:['40 days and nights','20 days','7 days','100 days'],correct:0,verse:'Genesis 7:4'},
+    {q:'Who was the first king of Israel?',opts:['David','Solomon','Saul','Moses'],correct:2,verse:'1 Samuel 10:1'},
+    {q:'In which river was Jesus baptized?',opts:['Euphrates','Nile','Jordan','Tigris'],correct:2,verse:'Matthew 3:13'},
+    {q:'How many apostles did Jesus choose?',opts:['7','10','14','12'],correct:3,verse:'Luke 6:13'},
+    {q:'Who wrote Revelation?',opts:['Paul','Peter','John','Luke'],correct:2,verse:'Revelation 1:9'},
+    {q:'How many books are in the New Testament?',opts:['27','39','24','31'],correct:0,verse:'—'},
+    {q:'Where was Jesus born?',opts:['Nazareth','Jerusalem','Bethlehem','Capernaum'],correct:2,verse:'Luke 2:4-7'},
   ]
 };
 
@@ -1468,146 +1225,6 @@ const PASSAGE = {
   en:`<span class="verse-num">1</span>Now when Jesus saw the crowds, he went up on a mountainside and sat down. His disciples came to him, <span class="verse-num">2</span>and he began to teach them. He said: <span class="verse-num">3</span>Blessed are the poor in spirit, for theirs is the kingdom of heaven. <span class="verse-num">4</span>Blessed are those who mourn, for they will be comforted. <span class="verse-num">5</span>Blessed are the meek, for they will inherit the earth. <span class="verse-num">6</span>Blessed are those who hunger and thirst for righteousness, for they will be filled. <span class="verse-num">7</span>Blessed are the merciful, for they will be shown mercy. <span class="verse-num">8</span>Blessed are the pure in heart, for they will see God. <span class="verse-num">9</span>Blessed are the peacemakers, for they will be called children of God.`
 };
 
-// ── 30 versículos del día rotativos ──────────────────
-const DAILY_VERSES = {
-  es:[
-    {v:'"Porque yo sé los planes que tengo para ustedes, planes de bienestar y no de calamidad."',r:'Jeremías 29:11'},
-    {v:'"Todo lo puedo en Cristo que me fortalece."',r:'Filipenses 4:13'},
-    {v:'"El Señor es mi pastor; nada me faltará."',r:'Salmo 23:1'},
-    {v:'"Confía en el Señor con todo tu corazón y no te apoyes en tu propio entendimiento."',r:'Proverbios 3:5'},
-    {v:'"Dios es nuestro refugio y nuestra fortaleza, nuestra ayuda en tiempos de angustia."',r:'Salmo 46:1'},
-    {v:'"El amor es sufrido, es benigno; el amor no tiene envidia..."',r:'1 Corintios 13:4'},
-    {v:'"Porque de tal manera amó Dios al mundo que dio a su Hijo unigénito."',r:'Juan 3:16'},
-    {v:'"El que habita al abrigo del Altísimo morará bajo la sombra del Omnipotente."',r:'Salmo 91:1'},
-    {v:'"Sean fuertes y valientes. No teman ni se asusten... pues el Señor tu Dios va contigo."',r:'Deuteronomio 31:6'},
-    {v:'"Pedid y se os dará; buscad y hallaréis; llamad y se os abrirá."',r:'Mateo 7:7'},
-    {v:'"Venid a mí todos los que estáis trabajados y cargados, y yo os haré descansar."',r:'Mateo 11:28'},
-    {v:'"No os afanéis por nada; sino sean conocidas vuestras peticiones delante de Dios."',r:'Filipenses 4:6'},
-    {v:'"Aunque ande en valle de sombra de muerte, no temeré mal alguno, porque tú estarás conmigo."',r:'Salmo 23:4'},
-    {v:'"Yo soy el camino, la verdad y la vida; nadie viene al Padre sino por mí."',r:'Juan 14:6'},
-    {v:'"Esperad en el Señor; esforzaos y aliéntese vuestro corazón."',r:'Salmo 27:14'},
-    {v:'"El principio de la sabiduría es el temor del Señor."',r:'Proverbios 9:10'},
-    {v:'"No hay nada imposible para Dios."',r:'Lucas 1:37'},
-    {v:'"La paz de Dios, que sobrepasa todo entendimiento, guardará vuestros corazones."',r:'Filipenses 4:7'},
-    {v:'"Amarás al Señor tu Dios con todo tu corazón, con toda tu alma y con toda tu mente."',r:'Mateo 22:37'},
-    {v:'"Amarás a tu prójimo como a ti mismo."',r:'Mateo 22:39'},
-    {v:'"Sed fuertes y valientes, no temáis ni os espantéis... pues Jehová tu Dios va contigo."',r:'Josué 1:9'},
-    {v:'"El Señor dirige los pasos del hombre fiel y le complace ver su camino."',r:'Salmo 37:23'},
-    {v:'"¿Acaso no te mando que seas fuerte y valiente?"',r:'Josué 1:9'},
-    {v:'"Buscad primeramente el reino de Dios y su justicia, y todas estas cosas os serán añadidas."',r:'Mateo 6:33'},
-    {v:'"Porque gracia sois salvos por medio de la fe, y esto no de vosotros, pues es don de Dios."',r:'Efesios 2:8'},
-    {v:'"Respondió Jesús: amarás al Señor tu Dios sobre todas las cosas."',r:'Lucas 10:27'},
-    {v:'"El amor nunca deja de ser."',r:'1 Corintios 13:8'},
-    {v:'"Dios resistirá a los soberbios y dará gracia a los humildes."',r:'Santiago 4:6'},
-    {v:'"Cercano está el Señor a los que tienen el corazón quebrantado."',r:'Salmo 34:18'},
-    {v:'"El fruto del Espíritu es amor, gozo, paz, paciencia, benignidad, bondad, fe."',r:'Gálatas 5:22'},
-  ],
-  en:[
-    {v:'"For I know the plans I have for you," declares the Lord, "plans to prosper you and not to harm you."',r:'Jeremiah 29:11'},
-    {v:'"I can do all things through Christ who strengthens me."',r:'Philippians 4:13'},
-    {v:'"The Lord is my shepherd; I shall not want."',r:'Psalm 23:1'},
-    {v:'"Trust in the Lord with all your heart and lean not on your own understanding."',r:'Proverbs 3:5'},
-    {v:'"God is our refuge and strength, an ever-present help in trouble."',r:'Psalm 46:1'},
-    {v:'"For God so loved the world that he gave his one and only Son."',r:'John 3:16'},
-    {v:'"Be strong and courageous. Do not be afraid... for the Lord your God goes with you."',r:'Deuteronomy 31:6'},
-    {v:'"Ask and it will be given to you; seek and you will find; knock and the door will be opened."',r:'Matthew 7:7'},
-    {v:'"Come to me, all you who are weary and burdened, and I will give you rest."',r:'Matthew 11:28'},
-    {v:'"Do not be anxious about anything, but in every situation, by prayer... present your requests to God."',r:'Philippians 4:6'},
-    {v:'"Even though I walk through the darkest valley, I will fear no evil, for you are with me."',r:'Psalm 23:4'},
-    {v:'"I am the way and the truth and the life. No one comes to the Father except through me."',r:'John 14:6'},
-    {v:'"Nothing is impossible with God."',r:'Luke 1:37'},
-    {v:'"The peace of God, which transcends all understanding, will guard your hearts and your minds."',r:'Philippians 4:7'},
-    {v:'"Love the Lord your God with all your heart and with all your soul and with all your mind."',r:'Matthew 22:37'},
-    {v:'"Love your neighbor as yourself."',r:'Matthew 22:39'},
-    {v:'"Be strong and courageous. Do not be afraid; do not be discouraged."',r:'Joshua 1:9'},
-    {v:'"Love is patient, love is kind. It does not envy, it does not boast."',r:'1 Corinthians 13:4'},
-    {v:'"Seek first his kingdom and his righteousness, and all these things will be given to you."',r:'Matthew 6:33'},
-    {v:'"For it is by grace you have been saved, through faith — and this is not from yourselves, it is the gift of God."',r:'Ephesians 2:8'},
-    {v:'"The fruit of the Spirit is love, joy, peace, forbearance, kindness, goodness, faithfulness."',r:'Galatians 5:22'},
-  ]
-};
-function getTodayVerse(){
-  const arr = DAILY_VERSES[state.lang] || DAILY_VERSES.es;
-  const idx = new Date().getDate() % arr.length;
-  return arr[idx];
-}
-
-// ── Tienda: Luces de Fe ───────────────────────────────
-const STORE_ITEMS = {
-  es:[
-    // Rachas — el ítem más vendido en Duolingo
-    {id:'shield1',   name:'Escudo de Racha 1 día', icon:'🛡️', price:9,   coins:1,
-     desc:'Protege tu racha si no puedes completar tu lectura hoy.',
-     detail:'¿Ocupado o viajando? Tu racha queda a salvo.',category:'racha'},
-    {id:'shield7',   name:'Escudo Semanal',         icon:'⚔️', price:25,  coins:3,
-     desc:'Protege tu racha durante 7 días.',
-     detail:'Ideal para semanas de trabajo o viaje.',category:'racha'},
-    {id:'shield30',  name:'Escudo de Mes',           icon:'🏰', price:59,  coins:7,
-     desc:'Racha protegida durante 30 días completos.',
-     detail:'Para los más ocupados — sin perder tu progreso.',category:'racha'},
-    // Quiz
-    {id:'quiz_hint', name:'Ayuda de Ángel',          icon:'😇', price:5,   coins:1,
-     desc:'Elimina 2 opciones incorrectas en una pregunta.',
-     detail:'Como un salvavidas pero bíblico.',category:'quiz'},
-    {id:'quiz_time', name:'Tiempo Extra +45s',        icon:'⏳', price:5,   coins:1,
-     desc:'Añade 45 segundos extra en tu próximo quiz.',
-     detail:'Para los que piensan con calma.',category:'quiz'},
-    {id:'quiz_skip', name:'Saltar Pregunta',          icon:'⏭️', price:8,   coins:1,
-     desc:'Salta una pregunta difícil sin perder puntos.',
-     detail:'Útil en racha de respuestas correctas.',category:'quiz'},
-    // Chat IA
-    {id:'chat20',    name:'+20 Mensajes IA',          icon:'💬', price:10,  coins:1,
-     desc:'Añade 20 mensajes al Tutor IA este mes.',
-     detail:'Para cuando ya usaste tu límite.',category:'chat'},
-    {id:'chat50',    name:'+50 Mensajes IA',          icon:'🤖', price:19,  coins:2,
-     desc:'50 mensajes adicionales al Tutor IA.',
-     detail:'El más popular entre usuarios Free.',category:'chat'},
-    // Bonos
-    {id:'xp2',       name:'Multiplicador ×2 (3 días)',icon:'⚡', price:15,  coins:2,
-     desc:'Duplica los puntos de experiencia por 3 días.',
-     detail:'Sube de nivel mucho más rápido.',category:'bonus'},
-    {id:'lesson1',   name:'Lección Premium',          icon:'📚', price:12,  coins:1,
-     desc:'Desbloquea 1 lección avanzada por 30 días.',
-     detail:'Sin necesidad de suscripción premium.',category:'bonus'},
-    // Recargas
-    {id:'coins_50',  name:'50 Luces de Fe',           icon:'✨', price:25,  coins:null,
-     desc:'Paquete pequeño para comenzar.',detail:'~$0.50 por luz.',category:'recarga',isCoinPack:true,amount:50},
-    {id:'coins_150', name:'150 Luces de Fe',          icon:'🌟', price:59,  coins:null,
-     desc:'El más popular — ¡ahorra 21%!',detail:'~$0.39 por luz.',category:'recarga',isCoinPack:true,amount:150},
-    {id:'coins_400', name:'400 Luces de Fe',          icon:'👑', price:129, coins:null,
-     desc:'Para los más devotos — ¡ahorra 35%!',detail:'~$0.32 por luz.',category:'recarga',isCoinPack:true,amount:400},
-  ],
-  en:[
-    {id:'shield1',   name:'1-Day Streak Shield',     icon:'🛡️', price:9,   coins:1,
-     desc:"Protect your streak if you can't complete today's reading.",
-     detail:'Busy or traveling? Your streak stays safe.',category:'streak'},
-    {id:'shield7',   name:'Weekly Shield',            icon:'⚔️', price:25,  coins:3,
-     desc:'Protect your streak for 7 days.',
-     detail:'Perfect for busy work weeks or travel.',category:'streak'},
-    {id:'quiz_hint', name:'Angel Hint',               icon:'😇', price:5,   coins:1,
-     desc:'Eliminate 2 wrong options on a quiz question.',
-     detail:'Like a lifeline, but biblical.',category:'quiz'},
-    {id:'quiz_time', name:'Extra Time +45s',          icon:'⏳', price:5,   coins:1,
-     desc:'Add 45 extra seconds to your next quiz.',
-     detail:'For those who like to think it through.',category:'quiz'},
-    {id:'chat20',    name:'+20 AI Messages',          icon:'💬', price:10,  coins:1,
-     desc:'Add 20 messages to the AI Tutor this month.',
-     detail:"For when you've hit your limit.",category:'chat'},
-    {id:'chat50',    name:'+50 AI Messages',          icon:'🤖', price:19,  coins:2,
-     desc:'50 additional AI Tutor messages.',
-     detail:'Most popular among Free users.',category:'chat'},
-    {id:'xp2',       name:'2× Multiplier (3 days)',  icon:'⚡', price:15,  coins:2,
-     desc:'Double your XP for 3 days.',
-     detail:'Level up much faster.',category:'bonus'},
-    {id:'coins_50',  name:'50 Faith Lights',         icon:'✨', price:25,  coins:null,
-     desc:'Small starter pack.',detail:'~$0.50/light.',category:'recharge',isCoinPack:true,amount:50},
-    {id:'coins_150', name:'150 Faith Lights',        icon:'🌟', price:59,  coins:null,
-     desc:'Most popular — save 21%!',detail:'~$0.39/light.',category:'recharge',isCoinPack:true,amount:150},
-    {id:'coins_400', name:'400 Faith Lights',        icon:'👑', price:129, coins:null,
-     desc:'Best value — save 35%!',detail:'~$0.32/light.',category:'recharge',isCoinPack:true,amount:400},
-  ]
-};
-
 const DEVOTIONAL = {
   es:{verse:'"Porque yo sé los pensamientos que tengo acerca de vosotros, dice Jehová, pensamientos de paz y no de mal."',ref:'Jeremías 29:11',body:`<p>En tiempos de incertidumbre, el profeta Jeremías escribe estas palabras a un pueblo en exilio. No les promete un regreso inmediato — les promete algo más profundo: que los planes de Dios tienen una dirección.</p><br><p>La palabra hebrea "shalom" traducida como "paz" significa bienestar completo, integridad, totalidad. No es solo ausencia de problemas, sino la presencia de todo lo que nos hace florecer.</p><br><p>Hoy, si te encuentras en tu propio "exilio" — una situación que no elegiste, un período difícil — estas palabras son para ti también. Los planes no se cancelaron.</p>`},
   en:{verse:'"For I know the plans I have for you," declares the Lord, "plans to prosper you and not to harm you, plans to give you hope and a future."',ref:'Jeremiah 29:11',body:`<p>In times of uncertainty, the prophet Jeremiah writes these words to a people in exile, far from home. He doesn't promise an immediate return — he promises something deeper: that God's plans have a direction.</p><br><p>The Hebrew word "shalom" translated as "peace" means complete well-being, integrity, wholeness — not just absence of problems, but the presence of everything that makes us flourish.</p><br><p>Today, if you find yourself in your own "exile" — a situation you didn't choose — these words are for you too. The plans weren't cancelled.</p>`}
@@ -1616,7 +1233,7 @@ const DEVOTIONAL = {
 // ══════════════════════════════════
 // ICONS
 // ══════════════════════════════════
-const IC={home:`<svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/></svg>`,chat:`<svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 0 1 .865-.501 48.172 48.172 0 0 0 3.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z"/></svg>`,book:`<svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25"/></svg>`,sun:`<svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z"/></svg>`,quiz:`<svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z"/></svg>`,heart:`<svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z"/></svg>`,church:`<svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 21v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21m0 0h4.5V3.545M12.75 21h7.5V10.75M2.25 21h1.5m18 0h-18M2.25 9l4.5-1.636M18.75 3l-1.5.545m0 6.205 3 1m1.5.5-1.5-.5M6.75 7.364V3h-3v18m3-13.636 10.5-3.819"/></svg>`,gift:`<svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 11.25v8.25a1.5 1.5 0 0 1-1.5 1.5H5.25a1.5 1.5 0 0 1-1.5-1.5v-8.25M12 4.875A2.625 2.625 0 1 0 9.375 7.5H12m0-2.625V7.5m0-2.625A2.625 2.625 0 1 1 14.625 7.5H12m0 0H8.25m3.75 0v13.5m0-13.5H15.75M12 7.5H8.25m0 0H5.25a1.5 1.5 0 0 0-1.5 1.5v1.5a.75.75 0 0 0 .75.75h16.5a.75.75 0 0 0 .75-.75V9a1.5 1.5 0 0 0-1.5-1.5H15.75"/></svg>`,calendar:`<svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"/></svg>`,send:`<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5"/></svg>`,star:`<svg fill="currentColor" viewBox="0 0 24 24" width="16" height="16" style="display:inline-block;vertical-align:middle;flex-shrink:0"><path d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z"/></svg>`};
+const IC={home:`<svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/></svg>`,chat:`<svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 0 1 .865-.501 48.172 48.172 0 0 0 3.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z"/></svg>`,book:`<svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25"/></svg>`,sun:`<svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z"/></svg>`,quiz:`<svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z"/></svg>`,heart:`<svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z"/></svg>`,church:`<svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 21v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21m0 0h4.5V3.545M12.75 21h7.5V10.75M2.25 21h1.5m18 0h-18M2.25 9l4.5-1.636M18.75 3l-1.5.545m0 6.205 3 1m1.5.5-1.5-.5M6.75 7.364V3h-3v18m3-13.636 10.5-3.819"/></svg>`,gift:`<svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 11.25v8.25a1.5 1.5 0 0 1-1.5 1.5H5.25a1.5 1.5 0 0 1-1.5-1.5v-8.25M12 4.875A2.625 2.625 0 1 0 9.375 7.5H12m0-2.625V7.5m0-2.625A2.625 2.625 0 1 1 14.625 7.5H12m0 0H8.25m3.75 0v13.5m0-13.5H15.75M12 7.5H8.25m0 0H5.25a1.5 1.5 0 0 0-1.5 1.5v1.5a.75.75 0 0 0 .75.75h16.5a.75.75 0 0 0 .75-.75V9a1.5 1.5 0 0 0-1.5-1.5H15.75"/></svg>`,calendar:`<svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"/></svg>`,send:`<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5"/></svg>`,star:`<svg fill="currentColor" viewBox="0 0 24 24"><path d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z"/></svg>`};
 const ic=k=>IC[k]||'';
 
 // ══════════════════════════════════
@@ -1635,67 +1252,9 @@ function navigate(page){
 // ══════════════════════════════════
 function buildApp(){
   document.getElementById('app').innerHTML=
-    buildCrisisModal()+buildToastEl()+buildLanding()+buildPublicPages()+buildAuth('login')+buildAuth('signup')+buildAppShell()+buildPricingPage();
+    buildCrisisModal()+buildToastEl()+buildLanding()+buildAuth('login')+buildAuth('signup')+buildAppShell()+buildPricingPage();
   attachGlobalEvents();
   navigate('landing');
-}
-
-// ══════════════════════════════════
-// PÁGINAS PÚBLICAS (Google Ads + SEO)
-// ══════════════════════════════════
-function buildPublicPages(){
-  const navBar=(id)=>`<nav class="nav"><a class="nav-logo" onclick="navigate('landing')">MYFATHER</a>
-    <div class="nav-links">
-      <button class="btn btn-ghost btn-sm" onclick="navigate('landing')">← ${state.lang==='es'?'Inicio':'Home'}</button>
-      <button class="btn btn-gold btn-sm" onclick="navigate('signup')">${t('signUp')}</button>
-    </div></nav>`;
-
-  const privHtml = `<div id="page-privacy-page" class="page">
-    ${navBar('privacy')}
-    <div style="max-width:780px;margin:0 auto;padding:60px 32px">${buildPrivacy()}</div>
-  </div>`;
-
-  const termsHtml = `<div id="page-terms-page" class="page">
-    ${navBar('terms')}
-    <div style="max-width:780px;margin:0 auto;padding:60px 32px">${buildTerms()}</div>
-  </div>`;
-
-  const contactHtml = `<div id="page-contact-page" class="page">
-    ${navBar('contact')}
-    <div style="max-width:680px;margin:0 auto;padding:60px 32px">
-      <div class="page-header"><h1>${t('contactTitle')}</h1><p>${t('contactSub')}</p></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
-        <div class="input-wrap"><label class="input-label">${t('contactName')}</label><input class="input" id="pub-cnt-name" type="text"></div>
-        <div class="input-wrap"><label class="input-label">${t('contactEmail')}</label><input class="input" id="pub-cnt-email" type="email"></div>
-      </div>
-      <div class="input-wrap" style="margin-bottom:14px">
-        <label class="input-label">${t('contactType')}</label>
-        <select class="input select" id="pub-cnt-type">
-          <option>${t('contactTypeQ')}</option><option>${t('contactTypeBug')}</option>
-          <option>${t('contactTypeReport')}</option><option>${t('contactTypeChurch')}</option>
-        </select>
-      </div>
-      <div class="input-wrap" style="margin-bottom:20px">
-        <label class="input-label">${t('contactMsg')}</label>
-        <textarea class="input" id="pub-cnt-msg" rows="5" style="resize:vertical"></textarea>
-      </div>
-      <button class="btn btn-gold" onclick="sendPublicContact()">${t('contactSend')}</button>
-      <div id="pub-cnt-ok" style="display:none;margin-top:12px;color:#7ecfa0">✓ ${t('contactSent')}</div>
-    </div>
-  </div>`;
-
-  return privHtml + termsHtml + contactHtml;
-}
-
-async function sendPublicContact(){
-  const name  = document.getElementById('pub-cnt-name')?.value.trim();
-  const email = document.getElementById('pub-cnt-email')?.value.trim();
-  const type  = document.getElementById('pub-cnt-type')?.value;
-  const msg   = document.getElementById('pub-cnt-msg')?.value.trim();
-  if(!name||!email||!msg){ showToast(state.lang==='es'?'Completa todos los campos':'Fill all fields'); return; }
-  // TODO: Cloudflare Worker → Resend
-  document.getElementById('pub-cnt-ok').style.display='block';
-  showToast(t('contactSent'));
 }
 
 // ══════════════════════════════════
@@ -1751,11 +1310,6 @@ function buildLanding(){
 </section>
 <div style="text-align:center;padding:40px;border-top:1px solid rgba(201,151,58,0.1)">
   <div style="font-size:12px;color:rgba(245,240,232,0.25)" id="l-footer">${t('footer')}</div>
-  <div style="margin-top:12px;display:flex;gap:16px;justify-content:center;flex-wrap:wrap">
-    <a onclick="navigate('privacy-page')" style="font-size:11px;color:rgba(245,240,232,0.2);cursor:pointer" id="l-priv">${t('privacyTitle')}</a>
-    <a onclick="navigate('terms-page')" style="font-size:11px;color:rgba(245,240,232,0.2);cursor:pointer" id="l-terms">${t('termsTitle')}</a>
-    <a onclick="navigate('contact-page')" style="font-size:11px;color:rgba(245,240,232,0.2);cursor:pointer" id="l-contact">${t('contactTitle')}</a>
-  </div>
 </div>
 </div>`;
 }
@@ -1774,17 +1328,13 @@ function buildAuth(type){
       ${!isLogin?`<div class="input-wrap"><label class="input-label" id="al-name">${t('authName')}</label><input class="input" id="an-inp" type="text" placeholder="${t('authNamePh')}"></div>`:''}
       <div class="input-wrap"><label class="input-label" id="al-email-${type}">${t('authEmail')}</label><input class="input" id="ae-${type}" type="email" placeholder="${t('authEmailPh')}"></div>
       <div class="input-wrap"><label class="input-label" id="al-pass-${type}">${t('authPass')}</label><input class="input" id="ap-${type}" type="password" placeholder="${t('authPassPh')}"></div>
-      ${isLogin?`<div style="text-align:right;margin-top:-6px;margin-bottom:6px"><a style="font-size:12px;color:rgba(201,151,58,0.6);cursor:pointer" onclick="showForgotPass()">${t('forgotPass')}</a></div>`:''}
-      ${!isLogin?`<div class="input-wrap"><label class="input-label" id="al-type">${t('authAccountType')}</label><select class="select input" id="atype"><option id="at1" value="adult">${t('authTypeAdult')}</option><option id="at2" value="kids">${t('authTypeKids')}</option><option id="at3" value="family">${t('authTypeFamily')}</option><option id="at4" value="church">${t('authTypeChurch')}</option></select></div>`:''}
+      ${!isLogin?`<div class="input-wrap"><label class="input-label" id="al-type">${t('authAccountType')}</label><select class="select input" id="atype"><option id="at1">${t('authTypeAdult')}</option><option id="at2">${t('authTypeKids')}</option><option id="at3">${t('authTypeFamily')}</option><option id="at4">${t('authTypeChurch')}</option></select></div>`:''}
+      <div style="font-size:12px;color:rgba(201,151,58,0.5);text-align:center" id="al-hint-${type}">${t('authHint')}</div>
       <div id="ae-err-${type}" style="font-size:13px;color:#f08080;display:none;padding:6px 0"></div>
       <button class="btn btn-gold" style="width:100%;justify-content:center;margin-top:4px" onclick="handleAuth('${type}')" id="ab-${type}">${isLogin?t('authLoginBtn'):t('authSignupBtn')}</button>
       <button class="btn btn-ghost" style="width:100%;justify-content:center" onclick="navigate('${isLogin?'signup':'login'}')" id="as-${type}">${isLogin?t('authGoSignup'):t('authGoLogin')}</button>
     </div>
     <div style="text-align:center;margin-top:16px"><a style="font-size:13px;color:rgba(201,151,58,0.5);cursor:pointer" onclick="navigate('landing')" id="ab2-${type}">${t('authBack')}</a></div>
-    <div style="text-align:center;margin-top:12px;font-size:11px;color:rgba(245,240,232,0.2)">
-      <a onclick="navigateApp('privacy')" style="cursor:pointer;color:rgba(245,240,232,0.2)">${t('privacyTitle')}</a> ·
-      <a onclick="navigateApp('terms')" style="cursor:pointer;color:rgba(245,240,232,0.2)">${t('termsTitle')}</a>
-    </div>
   </div>
 </div></div>`;
 }
@@ -1793,69 +1343,29 @@ function buildAuth(type){
 // APP SHELL
 // ══════════════════════════════════
 function buildAppShell(){
-  const isK = state.mode==='kids';
-  const kidsStyle = isK ? `
-    background: linear-gradient(135deg, #6bbde3 0%, #78c87a 50%, #ffd166 100%) !important;
-    color: #1a1410 !important;
-  ` : '';
-  return `<div id="page-app" class="page" style="${kidsStyle}">
-<nav class="nav" style="${isK?'background:rgba(107,189,227,0.95);border-bottom:3px solid #ffd166;':'' }">
-  <a class="nav-logo" onclick="navigateApp('home')" style="${isK?'color:#1a4a8b;font-size:22px;':''}">
-    ${isK ? '⭐ MyFather Kids' : 'MYFATHER'} ${isK?'':'<span id="app-tag">'+t('appTagline')+'</span>'}
-  </a>
+  return `<div id="page-app" class="page">
+<nav class="nav">
+  <a class="nav-logo" onclick="navigateApp('home')">MYFATHER <span id="app-tag">${t('appTagline')}</span></a>
   <div class="nav-links">
-    <button class="btn btn-ghost btn-sm" onclick="toggleLang()" id="app-lang" style="${isK?'color:#1a4a8b;border-color:#1a4a8b;':''}">🌐 ${state.lang==='es'?'EN':'ES'}</button>
-    <button class="btn btn-ghost btn-sm" onclick="showCrisis()" id="app-crisis" style="${isK?'color:#8b1a1a;border-color:#8b1a1a;':''}">🆘</button>
-    <button class="btn ${isK?'':'btn-outline'} btn-sm" onclick="signOut()" id="app-so" style="${isK?'background:#1a4a8b;color:white;':''}">
-      ${t('signOut')}
-    </button>
+    <button class="btn btn-ghost btn-sm" onclick="toggleLang()" id="app-lang">🌐 EN</button>
+    <button class="btn btn-ghost btn-sm" onclick="toggleMode()" id="app-mode">${t('switchToKids')}</button>
+    <button class="btn btn-ghost btn-sm" onclick="showCrisis()" id="app-crisis">${t('emergencyBtn')}</button>
+    <button class="btn btn-outline btn-sm" onclick="signOut()" id="app-so">${t('signOut')}</button>
   </div>
 </nav>
 <div class="dashboard">
-  <aside class="sidebar" id="sidebar" style="${isK?'background:rgba(107,189,227,0.15);border-right:2px solid rgba(255,209,102,0.4);':''}">
-    ${buildSidebar()}
-  </aside>
+  <aside class="sidebar" id="sidebar">${buildSidebar()}</aside>
   <div id="main-content" class="main-content"></div>
 </div>
 </div>`;
 }
 
 function buildSidebar(){
-  const isK = state.mode==='kids';
-  const kidsItems=[
-    ['home',   isK?'🏠 Inicio':'🏠 Home',    'home'],
-    ['chat',   isK?'🌟 Pregúntale a Dios':'💬 Tutor IA','chat'],
-    ['lessons',isK?'📖 Historias Bíblicas':'📚 Lecciones','book'],
-    ['quiz',   isK?'🎯 Jugar Quiz':'🎯 Quiz Bíblico','quiz'],
-    ['reading',isK?'📅 Mi Lectura':'📅 Plan de Lectura','calendar'],
-  ];
-  const adultItems=[
-    ['home',       t('navHome'),       'home'],
-    ['chat',       t('navChat'),       'chat'],
-    ['lessons',    t('navLessons'),    'book'],
-    ['devotional', t('navDevotional'), 'sun'],
-    ['reading',    t('navReading'),    'calendar'],
-    ['quiz',       t('navQuiz'),       'quiz'],
-    ['haven',      t('navHaven'),      'heart'],
-    ['churches',   t('navChurches'),   'church'],
-  ];
-  const items = isK ? kidsItems : adultItems;
-  const kidsC = isK ? 'color:#1a4a8b;font-weight:600;' : '';
-  return `
-  <div class="sidebar-section" style="${kidsC}">${isK?(state.lang==='es'?'🌈 Mi Camino':'🌈 My Path'):t('navSectionFaith')}</div>
-  ${items.map(([pg,label,i])=>`
-    <button class="sidebar-item" data-page="${pg}" onclick="navigateApp('${pg}')" style="${isK?'border-radius:14px;margin-bottom:4px;':''}">
-      ${ic(i)} <span>${label}</span>
-      ${pg==='chat'?`<span class="sidebar-badge" style="${isK?'background:#ff8c69;':''}">IA</span>`:''}
-    </button>`).join('')}
-  <div class="sidebar-section" style="${kidsC}">${isK?(state.lang==='es'?'✨ Mi Cuenta':'✨ My Account'):t('navSectionMore')}</div>
-  <button class="sidebar-item" data-page="store" onclick="navigateApp('store')">
-    ${ic('gift')} <span>${t('navStore')}</span>
-    <span style="font-size:10px;background:rgba(201,151,58,0.2);color:var(--gold);padding:2px 6px;border-radius:8px;margin-left:auto">✨</span>
-  </button>
-  <button class="sidebar-item" data-page="pricing-page" onclick="navigate('pricing-page')">
-    ${ic('star')} <span>${t('navPricing')}</span>
-  </button>`;
+  const items=[['home',t('navHome'),'home'],['chat',t('navChat'),'chat'],['lessons',t('navLessons'),'book'],['devotional',t('navDevotional'),'sun'],['reading',t('navReading'),'calendar'],['quiz',t('navQuiz'),'quiz'],['haven',t('navHaven'),'heart'],['churches',t('navChurches'),'church']];
+  return `<div class="sidebar-section" id="sb-s1">${t('navSectionFaith')}</div>
+  ${items.map(([pg,label,i])=>`<button class="sidebar-item" data-page="${pg}" onclick="navigateApp('${pg}')">${ic(i)} <span>${label}</span>${pg==='chat'?'<span class="sidebar-badge">IA</span>':''}</button>`).join('')}
+  <div class="sidebar-section" id="sb-s2">${t('navSectionMore')}</div>
+  <button class="sidebar-item" data-page="pricing-page" onclick="navigate('pricing-page')">${ic('gift')} <span id="sb-pricing">${t('navPricing')}</span></button>`;
 }
 
 // ══════════════════════════════════
@@ -1881,96 +1391,33 @@ function buildPricingPage(){
 }
 
 function getPricingPlans(){
+  const l=state.lang;
   return [
-    {key:'free', name:{es:'Gratuito',en:'Free'}, price:'0', period:{es:'para siempre',en:'forever'},
-     features:{
-       es:['Tutor IA (10 msg/mes)','Versículo y devocional diario','1 lección por mes','3 quizzes por mes','Acceso a Haven básico'],
-       en:['AI Tutor (10 msg/month)','Daily verse & devotional','1 lesson per month','3 quizzes per month','Basic Haven access']},
-     btn:{es:'Empezar gratis',en:'Start free'},featured:false,
-     limits:{es:'⚠️ Muy limitado — ideal para probar',en:'⚠️ Very limited — ideal to try'}},
-    {key:'basic', name:{es:'Fe',en:'Faith'}, price:'3', period:{es:'/mes · $29/año',en:'/month · $29/year'},
-     features:{
-       es:['Tutor IA (60 msg/mes)','5 lecciones por mes','Quizzes ilimitados','Plan de lectura completo','20 Luces de Fe/mes'],
-       en:['AI Tutor (60 msg/month)','5 lessons per month','Unlimited quizzes','Full reading plan','20 Faith Lights/month']},
-     btn:{es:'Comenzar — 7 días gratis',en:'Start — 7 days free'},featured:false},
-    {key:'premium', name:{es:'Gracia',en:'Grace'}, price:'6', period:{es:'/mes · $55/año',en:'/month · $55/year'},
-     features:{
-       es:['Tutor IA ilimitado','Todas las lecciones','Haven completo','Sin anuncios','100 Luces de Fe/mes','Recordatorios diarios'],
-       en:['Unlimited AI Tutor','All lessons','Full Haven','No ads','100 Faith Lights/month','Daily reminders']},
-     btn:{es:'Prueba 7 días gratis',en:'Free trial 7 days'},featured:true},
-    {key:'family', name:{es:'Familia',en:'Family'}, price:'10', period:{es:'/mes · hasta 6',en:'/month · up to 6'},
-     features:{
-       es:['Todo Gracia ×6 miembros','Panel de padres','Modo niños dedicado','250 Luces/mes','Reporte familiar'],
-       en:['Everything Grace ×6 members','Parent dashboard','Kids mode','250 Lights/month','Family report']},
+    {key:'free',  name:{es:'Gratuito',en:'Free'},     price:'0',  period:{es:'para siempre',en:'forever'},
+     features:{es:['Tutor IA (20 mensajes/mes)','Devocional diario','3 lecciones por mes','Plan de lectura básico'],en:['AI Tutor (20 messages/month)','Daily devotional','3 lessons per month','Basic reading plan']},
+     btn:{es:'Empezar gratis',en:'Start free'},featured:false},
+    {key:'personal',name:{es:'Personal',en:'Personal'},price:'7', period:{es:'/mes · $70/año',en:'/month · $70/year'},
+     features:{es:['Tutor IA ilimitado','Todas las lecciones','Quiz completo','Haven — acompañamiento','Sin anuncios'],en:['Unlimited AI Tutor','All lessons','Full quiz','Haven — accompaniment','No ads']},
+     btn:{es:'Prueba gratis 7 días',en:'Free trial 7 days'},featured:true},
+    {key:'family', name:{es:'Familia',en:'Family'},    price:'14', period:{es:'/mes · hasta 5',en:'/month · up to 5'},
+     features:{es:['Todo Personal ×5','Panel de padres','Modo niños','Reportes familiares'],en:['Everything Personal ×5','Parent dashboard','Kids mode','Family reports']},
      btn:{es:'Plan familiar',en:'Family plan'},featured:false},
-    {key:'church', name:{es:'Iglesia',en:'Church'}, price:'25', period:{es:'/mes · ilimitado',en:'/month · unlimited'},
-     features:{
-       es:['Todo Familia ilimitado','Panel admin','Soporte prioritario','Reportes mensuales','Marca blanca'],
-       en:['Everything Family unlimited','Admin panel','Priority support','Monthly reports','White label']},
-     btn:{es:'Contactar',en:'Contact us'},featured:false},
+    {key:'church', name:{es:'Iglesia',en:'Church'},    price:'49', period:{es:'/mes · ilimitado',en:'/month · unlimited'},
+     features:{es:['Todo Familia ilimitado','Panel admin','Soporte dedicado','Reporte mensual'],en:['Everything Family unlimited','Admin panel','Dedicated support','Monthly report']},
+     btn:{es:'Contactar ventas',en:'Contact sales'},featured:false},
   ];
 }
 
-const MP_PUBLIC_KEY = ''; // Cargada desde el Worker
-
-async function handleCheckout(plan){
-  if(!state.user && plan!=='free'){ navigate('signup'); return; }
-  if(plan==='free'){ showToast(state.lang==='es'?'¡Ya tienes acceso gratuito!':'You already have free access!'); return; }
-  if(plan==='church'){ navigateApp('contact'); return; }
-
-  if(CF_WORKER_URL){
-    showToast(state.lang==='es'?'Conectando con MercadoPago...':'Connecting to MercadoPago...');
-    try {
-      const r = await fetch(`${CF_WORKER_URL}/mp/create-pref`, {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ plan, user_id: state.user.id, lang: state.lang })
-      });
-      const { init_point, sandbox_init_point } = await r.json();
-      // En desarrollo usa sandbox, en producción usa init_point
-      window.location.href = sandbox_init_point || init_point;
-    } catch(e){
-      showToast(state.lang==='es'?'Error conectando a MercadoPago':'MercadoPago connection error');
-    }
-  } else {
-    // Mientras el Worker no esté configurado
-    showToast(state.lang==='es'?'Pagos disponibles muy pronto en myfather.app':'Payments coming very soon to myfather.app');
-  }
-}
-
-async function buyItem(itemId){
-  if(!state.user){ navigate('login'); return; }
-  const items = STORE_ITEMS[state.lang]||STORE_ITEMS.es;
-  const item = items.find(i=>i.id===itemId);
-  if(!item) return;
-
-  if(CF_WORKER_URL){
-    showToast(state.lang==='es'?`Procesando: ${item.name}...`:`Processing: ${item.name}...`);
-    try {
-      const r = await fetch(`${CF_WORKER_URL}/mp/store-checkout`, {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ item_id: itemId, user_id: state.user.id })
-      });
-      const { init_point } = await r.json();
-      window.location.href = init_point;
-    } catch(e){
-      showToast(state.lang==='es'?'Error al procesar':'Processing error');
-    }
-  } else {
-    showToast(state.lang==='es'?`Tienda disponible muy pronto — ${item.name}`:`Store coming soon — ${item.name}`);
-  }
-}
-
-function renderPricingCards(plans, compact){
-  const cols = compact ? 'repeat(auto-fit,minmax(185px,1fr))' : 'repeat(auto-fit,minmax(210px,1fr))';
+function renderPricingCards(plans,compact){
+  const cols=compact?'repeat(auto-fit,minmax(190px,1fr))':'repeat(auto-fit,minmax(220px,1fr))';
   return `<div style="display:grid;grid-template-columns:${cols};gap:16px">
-  ${plans.map(p=>`<div class="pricing-card ${p.featured?'featured':''}" style="${p.key==='free'?'opacity:0.75;':''}">
+  ${plans.map(p=>`<div class="pricing-card ${p.featured?'featured':''}">
     ${p.featured?`<div class="pricing-popular">${t('pricingMostPopular')}</div>`:''}
     <div class="pricing-name">${p.name[state.lang]||p.name.es}</div>
     <div class="pricing-price">$${p.price}<span> USD</span></div>
-    <div class="pricing-period">${p.period[state.lang]||p.period.es}</div>
-    ${p.limits?`<div style="font-size:11px;color:rgba(255,160,100,0.85);margin-bottom:8px">${p.limits[state.lang]||p.limits.es}</div>`:''}
+    <div class="pricing-period">${(p.period[state.lang]||p.period.es)}</div>
     <div class="pricing-features">${(p.features[state.lang]||p.features.es).map(f=>`<div class="pricing-feature"><span class="pricing-check">✓</span>${f}</div>`).join('')}</div>
-    <button class="btn ${p.featured?'btn-gold':'btn-outline'}" style="width:100%;justify-content:center;margin-top:12px" onclick="handleCheckout('${p.key}')">${p.btn[state.lang]||p.btn.es}</button>
+    <button class="btn ${p.featured?'btn-gold':'btn-outline'}" style="width:100%;justify-content:center" onclick="handleCheckout('${p.key}')">${(p.btn[state.lang]||p.btn.es)}</button>
   </div>`).join('')}
   </div>`;
 }
@@ -1981,113 +1428,126 @@ function renderPricingCards(plans, compact){
 let _currentPage = 'home';
 function navigateApp(pg){
   if(!state.user){ navigate('login'); return; }
-  _currentPage=pg;
-  const map={home:buildHome,chat:buildChat,lessons:buildLessons,devotional:buildDevotional,reading:buildReading,quiz:buildQuiz,haven:buildHaven,churches:buildChurches,store:buildStore,contact:buildContact,privacy:buildPrivacy,terms:buildTerms};
-  const mc=document.getElementById('main-content');
+  _currentPage = pg;
+  const map = {
+    home:buildHome, chat:buildChat, lessons:buildLessons,
+    devotional:buildDevotional, reading:buildReading,
+    quiz:buildQuiz, haven:buildHaven, churches:buildChurches, store:buildStore
+  };
+  const mc = document.getElementById('main-content');
   if(!mc) return;
-  mc.innerHTML=(map[pg]||buildHome)();
+  mc.innerHTML = (map[pg]||buildHome)();
   document.querySelectorAll('.sidebar-item').forEach(i=>i.classList.toggle('active',i.dataset.page===pg));
   if(pg==='chat') setupChatEvents();
   window.scrollTo(0,0);
+  // Upgrade prompt a los 14 días en plan free
+  if(state.user?.plan==='free' && daysSinceJoined()>=14 && pg==='home'){
+    setTimeout(showUpgradePrompt, 800);
+  }
+}
+
+function showUpgradePrompt(){
+  // Solo mostrar 1 vez por sesión
+  if(window.__upgradeShown) return;
+  window.__upgradeShown = true;
+  const isEs = state.lang==='es';
+  const box = document.createElement('div');
+  box.id = 'upgrade-modal';
+  box.style.cssText = 'position:fixed;inset:0;background:rgba(26,20,16,0.88);z-index:2000;display:flex;align-items:center;justify-content:center;padding:20px';
+  box.innerHTML = `<div style="background:#1e1810;border:1px solid rgba(201,151,58,0.4);border-radius:var(--radius-xl);padding:40px;max-width:420px;width:100%;text-align:center">
+    <div style="font-size:48px;margin-bottom:16px">✝️</div>
+    <h2 style="font-family:var(--font-display);color:var(--gold);font-size:22px;margin-bottom:10px">${isEs?'14 días juntos':'14 days together'}</h2>
+    <p style="font-size:15px;color:rgba(245,240,232,0.7);line-height:1.7;margin-bottom:24px">
+      ${isEs
+        ?`Llevas ${daysSinceJoined()} días explorando la Palabra. El plan gratuito tiene límites — el plan Fe por $3 USD/mes te da 60 mensajes IA, 5 lecciones al mes y mucho más.`
+        :`You've spent ${daysSinceJoined()} days exploring the Word. The free plan has limits — the Faith plan for $3 USD/month gives you 60 AI messages, 5 lessons/month and much more.`}
+    </p>
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+      <button class="btn btn-gold" onclick="navigate('pricing-page');document.getElementById('upgrade-modal')?.remove()">
+        ${isEs?'Ver planes →':'See plans →'}
+      </button>
+      <button class="btn btn-ghost" onclick="document.getElementById('upgrade-modal')?.remove()">
+        ${isEs?'Quizás después':'Maybe later'}
+      </button>
+    </div>
+  </div>`;
+  document.body.appendChild(box);
+  box.addEventListener('click',e=>{ if(e.target===box) box.remove(); });
 }
 
 // ══════════════════════════════════
 // HOME
 // ══════════════════════════════════
 function buildHome(){
-  const h=new Date().getHours();
-  const g=h<12?t('greetMorning'):h<18?t('greetAfternoon'):t('greetEvening');
-  const isK=state.mode==='kids';
-  const name=state.user?.name||'';
-  const streak=state.streak||0;
-  const verse=getTodayVerse();
-  const plan=state.user?.plan||'free';
-  const msgsLeft=getMsgRemaining();
-  const isLimited=['free','basic'].includes(plan);
+  const h   = new Date().getHours();
+  const g   = h<12?t('greetMorning'):h<18?t('greetAfternoon'):t('greetEvening');
+  const isK = state.mode==='kids';
+  const name= state.user?.name?`, ${state.user.name}`:'';
+  const streak = state.streak||0;
+  const streakEmoji = streak>=30?'🔥':streak>=7?'🔥':streak>=3?'🕯️':'✨';
+  const left = msgsLeft();
+  const plan = state.user?.plan||'free';
 
-  // Racha visual tipo Duolingo
-  const streakFlame = streak>=7?'🔥':streak>=3?'🕯️':'✨';
-  const streakMsg = streak===0?(state.lang==='es'?'¡Empieza hoy!':'Start today!')
-    :streak===1?(state.lang==='es'?'¡Primer día!':'First day!')
-    :streak<7?(state.lang==='es'?`${streak} días seguidos`:`${streak} days in a row`)
-    :(state.lang==='es'?`¡${streak} días! ¡Increíble!`:`${streak} days! Amazing!`);
+  // Versículo: de DB si está, si no del array local
+  const cv = state.contentCache.verse;
+  const verse = cv
+    ? (state.lang==='en' ? {v:cv.verse_en,r:cv.ref_en} : {v:cv.verse_es,r:cv.ref_es})
+    : getTodayVerse();
 
-  const quickActions=isK
-    ?[['🎯',state.lang==='es'?'Jugar Quiz':'Play Quiz','quiz'],
-      ['📖',state.lang==='es'?'Historias':'Stories','lessons'],
-      ['🌟',state.lang==='es'?'Preguntarle a Dios':'Ask God','chat'],
-      ['📅',state.lang==='es'?'Mi lectura':'My reading','reading']]
-    :[['💬',t('quickDev'),'devotional'],
-      ['🎯',t('quickQuiz'),'quiz'],
-      ['📅',t('quickRead'),'reading'],
-      ['🕊️',t('quickHaven'),'haven']];
+  return `<div class="page-header"><h1>${g}${name} ${isK?'⭐':'✝️'}</h1><p>${isK?t('homeKidsSub'):t('homeAdultSub')}</p></div>
 
-  return `
-${isK?`<style>
-  .home-kids-bg{background:linear-gradient(135deg,rgba(107,189,227,0.08),rgba(120,200,122,0.08));border-radius:20px;padding:8px;margin-bottom:16px}
-  .stat-card{border-radius:16px!important}
-  .quick-card{border-radius:18px!important;font-size:15px!important}
-</style>`:''}
-
-<div class="${isK?'home-kids-bg':''}">
-<div class="page-header" style="margin-bottom:16px">
-  <h1 style="${isK?'color:var(--kids-sky)':''}">${g}${name?', '+name:''} ${isK?'⭐':'✝️'}</h1>
-  <p>${isK?t('homeKidsSub'):t('homeAdultSub')}</p>
-</div>
-
-<!-- Racha destacada -->
-<div class="card card-gold" style="margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;padding:20px 24px;cursor:pointer" onclick="navigateApp('reading')">
-  <div style="display:flex;align-items:center;gap:14px">
-    <div style="font-size:42px;line-height:1">${streakFlame}</div>
-    <div>
-      <div style="font-family:var(--font-display);font-size:28px;color:var(--gold);line-height:1">${streak}</div>
-      <div style="font-size:13px;color:rgba(245,240,232,0.6);margin-top:2px">${streakMsg}</div>
-    </div>
+<!-- Racha -->
+<div class="card card-gold" style="margin-bottom:24px;display:flex;align-items:center;gap:16px;padding:20px 24px;cursor:pointer" onclick="navigateApp('reading')">
+  <div style="font-size:44px">${streakEmoji}</div>
+  <div style="flex:1">
+    <div style="font-family:var(--font-display);font-size:32px;color:var(--gold);line-height:1">${streak}</div>
+    <div style="font-size:13px;color:rgba(245,240,232,0.55);margin-top:3px">${state.lang==='es'?'días de racha':'day streak'} · ${streak===0?(state.lang==='es'?'¡Empieza hoy!':'Start today!'):(state.lang==='es'?'¡Sigue así!':'Keep going!')}</div>
   </div>
-  <div style="text-align:right">
-    <div style="font-size:12px;color:rgba(245,240,232,0.4)">${state.lang==='es'?'Racha actual':'Current streak'}</div>
-    ${streak>0?`<div style="font-size:11px;color:var(--sage);margin-top:4px">✓ ${state.lang==='es'?'Activa hoy':'Active today'}</div>`
-    :`<div style="font-size:11px;color:var(--gold);margin-top:4px">${state.lang==='es'?'¡Completa tu lectura!':'Complete your reading!'}</div>`}
-  </div>
+  <div style="font-size:12px;color:rgba(245,240,232,0.3)">${state.lang==='es'?'Toca para marcar lectura →':'Tap to mark reading →'}</div>
 </div>
 
 <!-- Stats -->
-<div class="stats-grid" style="margin-bottom:20px">
-  <div class="stat-card"><div class="stat-label">${t('statLessons')}</div><div class="stat-value">${state.user?.total_lessons||0}</div><div class="stat-sub">${t('statLessonsSub')}</div></div>
-  <div class="stat-card"><div class="stat-label">${t('statQuiz')}</div><div class="stat-value">${state.user?.quiz_avg||'—'}${state.user?.quiz_avg?'%':''}</div><div class="stat-sub">${t('statQuizSub')}</div></div>
-  <div class="stat-card"><div class="stat-label">${state.lang==='es'?'Mensajes IA':'AI Messages'}</div><div class="stat-value" style="${msgsLeft<=3&&isLimited?'color:var(--crimson)':''}">${isLimited?msgsLeft:'∞'}</div><div class="stat-sub">${state.lang==='es'?'restantes':'remaining'}</div></div>
-  <div class="stat-card" style="cursor:pointer" onclick="navigateApp('store')"><div class="stat-label">${t('storeCoinName')}</div><div class="stat-value" style="color:var(--gold)">✨${state.user?.coins||0}</div><div class="stat-sub">${state.lang==='es'?'tienda':'store'}</div></div>
+<div class="stats-grid" style="margin-bottom:24px">
+  <div class="stat-card"><div class="stat-label">${t('statStreak')}</div><div class="stat-value">${streak}</div><div class="stat-sub">${t('statStreakSub')}</div></div>
+  <div class="stat-card"><div class="stat-label">${state.lang==='es'?'Mensajes IA':'AI Messages'}</div>
+    <div class="stat-value" style="${left<=1?'color:var(--crimson)':''}">${plan==='free'||plan==='basic'?left:'∞'}</div>
+    <div class="stat-sub">${state.lang==='es'?'restantes':'remaining'}</div>
+  </div>
+  <div class="stat-card"><div class="stat-label">${t('statQuiz')}</div><div class="stat-value">${state.user?.quiz_avg||0}%</div><div class="stat-sub">${t('statQuizSub')}</div></div>
+  <div class="stat-card" style="cursor:pointer" onclick="navigateApp('store')">
+    <div class="stat-label">${t('storeCoinName')}</div>
+    <div class="stat-value" style="color:var(--gold)">✨${state.user?.coins||0}</div>
+    <div class="stat-sub">${state.lang==='es'?'tienda':'store'}</div>
+  </div>
 </div>
 
 <!-- Versículo del día -->
-<div class="card" style="margin-bottom:20px;padding:24px;border-color:rgba(201,151,58,0.2);text-align:center">
-  <div style="font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--gold);margin-bottom:14px">${t('verseOfDay')}</div>
-  <div style="font-family:var(--font-serif);font-size:20px;font-style:italic;line-height:1.6;margin-bottom:10px;color:var(--parchment)">${verse.v}</div>
+<div class="card card-gold" style="margin-bottom:24px;text-align:center;padding:32px">
+  <div style="font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:16px">${t('verseOfDay')}</div>
+  <div style="font-family:var(--font-serif);font-size:20px;font-style:italic;line-height:1.6;margin-bottom:10px">${verse.v}</div>
   <div style="font-size:13px;color:var(--gold)">${verse.r}</div>
-  <button class="btn btn-ghost btn-sm" style="margin-top:14px" onclick="navigateApp('chat')">${state.lang==='es'?'💬 Reflexionar con el Tutor IA':'💬 Reflect with AI Tutor'}</button>
+  <button class="btn btn-ghost btn-sm" style="margin-top:16px" onclick="navigateApp('chat')">💬 ${state.lang==='es'?'Reflexionar con el Tutor IA':'Reflect with AI Tutor'}</button>
 </div>
 
 <!-- Acciones rápidas -->
-<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-bottom:20px">
-  ${quickActions.map(([e,l,p])=>`
-  <div class="card quick-card" style="text-align:center;cursor:pointer;padding:22px 12px;transition:transform .15s" 
-       onmouseenter="this.style.transform='translateY(-2px)'" onmouseleave="this.style.transform=''"
-       onclick="navigateApp('${p}')">
-    <div style="font-size:30px;margin-bottom:8px">${e}</div>
-    <div style="font-size:13px;font-weight:500">${l}</div>
-  </div>`).join('')}
+<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:24px">
+  <div class="card" style="flex:1;min-width:240px;cursor:pointer" onclick="navigateApp('chat')">
+    <div style="display:flex;align-items:center;gap:12px"><div style="font-size:28px">🤖</div><div><div style="font-weight:500;margin-bottom:3px">${t('ctaChat')}</div><div style="font-size:12px;color:rgba(245,240,232,0.4)">${plan==='free'?`${left} msgs restantes`:state.lang==='es'?'Ilimitado':'Unlimited'}</div></div></div>
+  </div>
+  <div class="card" style="flex:1;min-width:240px;cursor:pointer" onclick="navigateApp('lessons')">
+    <div style="display:flex;align-items:center;gap:12px"><div style="font-size:28px">▶️</div><div><div style="font-weight:500;margin-bottom:3px">${t('ctaContinue')}</div><div style="font-size:12px;color:rgba(245,240,232,0.4)">${state.lang==='es'?'Ver lecciones':'View lessons'}</div></div></div>
+  </div>
 </div>
 
-${isLimited&&msgsLeft<=3?`
-<div style="background:rgba(201,151,58,0.08);border:1px solid rgba(201,151,58,0.25);border-radius:12px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-  <div style="font-size:13px;color:rgba(245,240,232,0.7)">
-    ${state.lang==='es'?`⚡ Te quedan <strong style="color:var(--gold)">${msgsLeft} mensajes IA</strong> este mes`
-    :`⚡ You have <strong style="color:var(--gold)">${msgsLeft} AI messages</strong> left this month`}
-  </div>
-  <button class="btn btn-gold btn-sm" onclick="navigate('pricing-page')">${state.lang==='es'?'Actualizar plan':'Upgrade'}</button>
-</div>`:''}
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px">
+  ${[['📖',t('quickDev'),'devotional'],['🎯',t('quickQuiz'),'quiz'],['📅',t('quickRead'),'reading'],['🕊️',t('quickHaven'),'haven'],['⛪',state.lang==='es'?'Iglesias':'Churches','churches'],['✨',t('navStore'),'store']].map(([e,l,p])=>`<div class="card" style="text-align:center;cursor:pointer;padding:20px 12px;transition:var(--transition)" onclick="navigateApp('${p}')"><div style="font-size:26px;margin-bottom:8px">${e}</div><div style="font-size:12px">${l}</div></div>`).join('')}
+</div>
 
-</div>`;
+${plan==='free'&&left<=1?`
+<div style="margin-top:20px;background:rgba(139,26,26,0.15);border:1px solid rgba(139,26,26,0.3);border-radius:var(--radius-md);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+  <div style="font-size:13px;color:rgba(245,240,232,0.7)">${state.lang==='es'?'⚠️ Sin mensajes IA este mes':'⚠️ No AI messages left this month'}</div>
+  <button class="btn btn-gold btn-sm" onclick="navigate('pricing-page')">${state.lang==='es'?'Actualizar plan →':'Upgrade →'}</button>
+</div>`:''}`;
 }
 
 // ══════════════════════════════════
@@ -2099,7 +1559,8 @@ function buildChat(){
   return `<div class="page-header"><h1>${t('chatTitle')}</h1><p>${isK?t('chatSubKids'):t('chatSub')}</p></div>
 <div class="chat-container">
   <div class="chat-mode-bar">
-    <span style="font-size:13px;color:rgba(245,240,232,0.5)">${isK ? '⭐ '+t('chatSubKids') : '✝️ '+t('chatSub')}</span>
+    <button class="mode-pill ${!isK?'active':''}" onclick="setChatMode('adult')">${t('chatModeAdult')}</button>
+    <button class="mode-pill kids-mode ${isK?'active':''}" onclick="setChatMode('kids')">${t('chatModeKids')}</button>
     <button class="mode-pill" style="margin-left:auto;color:rgba(245,240,232,0.4)" onclick="showCrisis()">${t('chatEmergency')}</button>
   </div>
   <div class="chat-messages" id="chat-msgs">
@@ -2115,14 +1576,7 @@ function buildChat(){
         <button class="chat-send" id="chat-send">${ic('send')}</button>
       </div>
     </div>
-    <div class="chat-disclaimer">
-      ${t('chatDisclaimer')}
-      ${state.user && ['free','basic'].includes(state.user.plan||'free') ?
-        `<span style="margin-left:8px;color:${getMsgRemaining()<=3?'rgba(232,89,60,0.8)':'rgba(245,240,232,0.3)'}">
-          · ${getMsgRemaining()} ${state.lang==='es'?'msgs restantes':'msgs left'}
-          ${getMsgRemaining()<=3?` <a onclick="navigate('pricing-page')" style="color:var(--gold);cursor:pointer">${state.lang==='es'?'Actualizar →':'Upgrade →'}</a>`:''}
-        </span>` : ''}
-    </div>
+    <div class="chat-disclaimer">${t('chatDisclaimer')}</div>
   </div>
 </div>`;
 }
@@ -2133,100 +1587,8 @@ function setupChatEvents(){
 }
 
 let chatBusy=false;
-
-// ══════════════════════════════════════════════════════
-// SISTEMA HÍBRIDO DE RESPUESTAS — 3 capas
-// Capa 1: Respuestas instantáneas (gratis, sin API)
-// Capa 2: Claude Haiku (barato, preguntas simples)
-// Capa 3: Claude Sonnet (profundo, preguntas teológicas)
-// ══════════════════════════════════════════════════════
-
 const SUICIDE_KW=['suicid','matarme','quitarme la vida','no quiero vivir','kill myself','end my life','dont want to live','hurt myself','hacerme daño','quiero morir'];
 const ABUSE_KW=['me golpea','me pega','me toca','me hace daño','me abusa','abuse','hitting me','touching me','hurts me','me viola','rape','violated','molest','robé','robamos','ilegal','illegal'];
-
-// Patrones simples → respuesta instantánea sin API
-const INSTANT_MAP = {
-  es: [
-    { p:/^(hola|hey|buenos días|buenas tardes|buenas noches|hi|ey)\b/i,
-      r:(n)=>`¡Hola${n?' '+n:''}! 😊 Estoy aquí para acompañarte en tu fe. ¿En qué te puedo ayudar hoy?` },
-    { p:/^(gracias|thank you|thanks|muchas gracias)\b/i,
-      r:()=>`Con mucho gusto. Recuerda: *"Todo lo que hagáis, hacedlo de corazón."* — Colosenses 3:23 🙏` },
-    { p:/^(ok|okay|bien|perfecto|entendido|👍|amén)\b/i,
-      r:()=>`¡Amén! ¿Hay algo más en lo que pueda ayudarte hoy?` },
-    { p:/quién (eres|es dios|es jesús)|who are you/i,
-      r:()=>`Soy el Tutor Bíblico de MyFather — tu guía en la fe, impulsado por inteligencia artificial. Puedo responder preguntas sobre la Biblia, teología, historia cristiana y acompañarte en momentos de duda. ¿Qué quieres explorar?` },
-    { p:/cuántos libros|how many books|libros (tiene|hay en) la biblia/i,
-      r:()=>`La Biblia tiene **66 libros** en el canon protestante (39 en el Antiguo Testamento y 27 en el Nuevo Testamento). Las Biblias católicas incluyen además 7 libros deuterocanónicos. ¿Quieres saber más sobre alguno en particular?` },
-    { p:/versículo (favorito|del día)|verse of the day/i,
-      r:()=>`✦ *"Porque yo sé los pensamientos que tengo acerca de vosotros, pensamientos de paz y no de mal, para daros el fin que esperáis."* — Jeremías 29:11\n\nUno de los versículos más amados de la Escritura. ¿Te gustaría reflexionar sobre él?` },
-    { p:/padre nuestro|oración|cómo (orar|rezar|puedo orar)/i,
-      r:()=>`La oración es simplemente una conversación honesta con Dios. Jesús enseñó el Padre Nuestro como modelo en Mateo 6:9-13. No necesitas palabras perfectas — Dios escucha el corazón. ¿Quieres que te explique los elementos de una oración o el significado del Padre Nuestro?` },
-    { p:/genesis|génesis|creación|creation/i,
-      r:()=>`Génesis es el primer libro de la Biblia y significa *"origen"* o *"comienzo"*. Cubre la creación del mundo, la caída del hombre, el diluvio de Noé y las historias de los patriarcas Abraham, Isaac, Jacob y José. ¿Qué parte de Génesis te interesa explorar?` },
-    { p:/jesús|jesucristo|jesus christ/i,
-      r:()=>`Jesucristo es la figura central del cristianismo — el Hijo de Dios que se hizo hombre. Vivió en Israel en el siglo I, enseñó el amor al prójimo, murió en la cruz y resucitó al tercer día. *"Porque tanto amó Dios al mundo que dio a su único Hijo"* — Juan 3:16. ¿Qué aspecto de la vida de Jesús te gustaría profundizar?` },
-  ],
-  en: [
-    { p:/^(hello|hey|hi|good morning|good evening|howdy)\b/i,
-      r:(n)=>`Hello${n?' '+n:''}! 😊 I'm here to guide you in your faith journey. What would you like to explore today?` },
-    { p:/^(thanks|thank you|ty|thx|amen)\b/i,
-      r:()=>`You're welcome! *"Whatever you do, do it heartily."* — Colossians 3:23 🙏` },
-    { p:/^(ok|okay|got it|perfect|👍)\b/i,
-      r:()=>`Amen! Is there anything else I can help you with today?` },
-    { p:/how many books|books in the bible/i,
-      r:()=>`The Bible has **66 books** in the Protestant canon — 39 in the Old Testament and 27 in the New Testament. Catholic Bibles include 7 additional deuterocanonical books. Want to learn about any specific book?` },
-  ]
-};
-
-// Palabras que indican complejidad → DeepSeek (modelo más profundo y barato)
-const COMPLEX_KW = [
-  'predestinación','predestination','trinidad','trinity','salvación','salvation',
-  'libre albedrío','free will','sufrimiento','suffering','por qué dios','why does god',
-  'contradicción','contradiction','diferencia entre','difference between',
-  'interpreta','interpret','significado de','meaning of','explícame','explain to me',
-  'teología','theology','escatología','eschatology','apocalipsis','revelation',
-  'comparar','compare','denomina','denomin','bautismo','baptism','eucaristía','eucharist',
-  'demonio','devil','infierno','hell','ángel','angel','milagro','miracle',
-];
-
-// ── Cloudflare Worker URL ─────────────────────────────
-// Una vez que subas el worker a Cloudflare, pon aquí la URL
-// Ejemplo: 'https://myfather-api.TU_USUARIO.workers.dev'
-const CF_WORKER_URL = 'https://myfather-api.mirandavilla341.workers.dev';
-
-
-async function callAI(txt, useDeep){
-  const lng = state.lang==='en' ? 'English' : 'Spanish (español)';
-  const isK = state.mode==='kids';
-  const maxTok = useDeep ? 700 : 250;
-
-  const sysKids = `You are a friendly biblical assistant for children ages 4-12. Always respond in ${lng}. Use simple warm language and occasional emojis ⭐🙏. NEVER share violent, sexual or inappropriate content. If a child mentions danger, calmly tell them to talk to a trusted adult. Max 2 short paragraphs.`;
-  const sysDeep = `You are a wise Christian biblical theologian and tutor — the AI of MyFather platform. Always respond in ${lng}. Cite Bible verses with exact references (Book Chapter:Verse). Answer with depth, nuance and compassion. If user mentions suicidal thoughts, respond with love and include crisis resources immediately. Max 300 words.`;
-  const sysFast = `You are a warm Christian biblical assistant. Always respond in ${lng}. Be helpful and concise. Cite 1 relevant Bible verse. Max 100 words. No lengthy preamble.`;
-
-  const systemPrompt = isK ? sysKids : (useDeep ? sysDeep : sysFast);
-  const messages = [...state.chatHistory.slice(-6), { role:'user', content: txt }];
-
-  // Todo el AI pasa por Cloudflare Worker — las API keys están seguras allá
-  const r = await fetch(`${CF_WORKER_URL}/ai/chat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      layer: useDeep ? 3 : 2,
-      system: systemPrompt,
-      messages,
-      max_tokens: maxTok
-    })
-  });
-  if(!r.ok){
-    const err = await r.text().catch(()=>'');
-    throw new Error(`Worker ${r.status}: ${err.slice(0,100)}`);
-  }
-  const d = await r.json();
-  if(d.error) throw new Error(typeof d.error === 'string' ? d.error : JSON.stringify(d.error));
-  return { text: d.content?.[0]?.text || '...', layer: useDeep ? 3 : 2 };
-}
-
 function detectCrisis(txt){
   const l=txt.toLowerCase();
   if(SUICIDE_KW.some(k=>l.includes(k))) return 'suicide';
@@ -2234,104 +1596,143 @@ function detectCrisis(txt){
   return null;
 }
 
-// Determina qué capa usar
-function routeMessage(txt) {
-  const l = txt.toLowerCase().trim();
-  const lang = state.lang === 'en' ? 'en' : 'es';
-  // Capa 1: respuesta instantánea
-  const patterns = INSTANT_MAP[lang] || INSTANT_MAP.es;
-  for(const entry of patterns){
-    if(entry.p.test(l)) return { layer:1, response: entry.r(state.user?.name||'') };
-  }
-  // Capa 3: DeepSeek para preguntas profundas
-  if(txt.length > 120 || COMPLEX_KW.some(k => l.includes(k))) return { layer:3 };
-  // Capa 2: Haiku para todo lo demás
-  return { layer:2 };
+// ── Capa 1: Respuestas preprogramadas (sin API, gratis) ──────────
+const PREP = {
+  es:[
+    {p:/^(hola|buenas|buenos días|buen día|hey|hi\b|ola\b|saludos)/i, r:(n)=>`¡Hola${n?' '+n:''}! 🙏 Soy tu Tutor Bíblico de MyFather. Puedo acompañarte en la Biblia, responder dudas de fe o simplemente escucharte. ¿De qué quieres hablar hoy?`},
+    {p:/^(gracias|thank you|thanks|muchas gracias|te lo agradezco)/i, r:()=>`Con mucho gusto. *"En todo dad gracias, porque esta es la voluntad de Dios para con vosotros."* — 1 Tesalonicenses 5:18 🙏`},
+    {p:/^(bien|muy bien|excelente|genial|perfecto|ok gracias)/i, r:()=>`Me alegra. *"Este es el día que hizo Jehová; nos gozaremos y alegraremos en él."* — Salmo 118:24`},
+    {p:/triste|mal(\b|está)|deprimid|solo\b|sola\b|llorand|me siento mal/i, r:()=>`Lo siento mucho. Dios conoce cada lágrima tuya. *"Cercano está Jehová a los quebrantados de corazón, y salva a los contritos de espíritu."* — Salmo 34:18\n\nNo tienes que enfrentar esto solo/a. ¿Quieres contarme qué está pasando?`},
+    {p:/ansiedad|ansios|angustia|preocupado|preocupada|estrés|stress/i, r:()=>`La ansiedad es real y agotadora. Dios lo sabe. *"No os afanéis por nada; sino sean conocidas vuestras peticiones delante de Dios... y la paz de Dios, que sobrepasa todo entendimiento, guardará vuestros corazones."* — Filipenses 4:6-7\n\n¿Qué te está preocupando?`},
+    {p:/miedo|temor|temo\b|asustado|asustada|tengo miedo/i, r:()=>`El miedo es completamente humano. Jesús también lo sintió en Getsemaní. *"No temas, porque yo estoy contigo; no desmayes, porque yo soy tu Dios que te esfuerzo."* — Isaías 41:10\n\n¿De qué tienes miedo?`},
+    {p:/dios (no )?exist|ateísmo|ateo|atea|duda.*dios|no creo|cuestiono/i, r:()=>`Dudar es completamente válido. Dios no huye de tus preguntas — muchos personajes bíblicos dudaron: Tomás, Job, el propio Salmo 22 empieza con "¿Por qué me has abandonado?"\n\nLa fe no es certeza perfecta — es seguir buscando a pesar de no tener todas las respuestas. ¿Qué duda específica tienes?`},
+    {p:/orar|oración|rezar|cómo (se )?ora|no sé orar/i, r:()=>`Orar es simplemente hablar con Dios como hablarías con alguien que te ama profundamente. Sin fórmulas perfectas.\n\nJesús enseñó el Padre Nuestro como modelo (Mateo 6:9-13):\n• Adoración: "Padre nuestro... santificado sea tu nombre"\n• Petición: "Danos el pan de hoy"\n• Perdón: "Perdona nuestras deudas"\n• Protección: "Líbranos del mal"\n\nPuedes empezar ahora mismo con: *"Dios, no sé bien cómo orar, pero aquí estoy..."*`},
+    {p:/biblia.*empez|por dónde empez|cómo leer la biblia|primer.*(libro|cosa)/i, r:()=>`Si quieres conocer a Jesús: empieza por el **Evangelio de Juan** — es el más personal y profundo de los 4 evangelios.\n\nSi quieres las grandes historias: **Génesis, Éxodo, Samuel, Daniel**.\n\nPara sabiduría diaria: **Proverbios** (31 capítulos, uno por día del mes).\n\nPara oración honesta con Dios: **Salmos**.\n\n¿Qué buscas en este momento de tu vida?`},
+    {p:/génesis|creación|adán|eva|jardín.*edén|principio.*mundo/i, r:()=>`Génesis es el primer libro y significa *"origen"* o *"principio"*. *"En el principio creó Dios los cielos y la tierra."* — Génesis 1:1\n\nNo es solo una historia de cómo se hizo el mundo — es una declaración de **quién** lo hizo y **por qué**: un Dios personal que considera su creación "muy buena", incluyéndote a ti.\n\n¿Qué parte de Génesis te genera curiosidad o dudas?`},
+    {p:/jesús|jesucristo|cristo|quién es jesús|vida de jesús/i, r:()=>`Jesús es la figura central del cristianismo. Él mismo dijo: *"Yo soy el camino, la verdad y la vida."* — Juan 14:6\n\nNo fue solo un maestro moral o profeta — los primeros seguidores lo reconocieron como Dios hecho hombre (Juan 1:14). Vivió en Israel en el siglo I, enseñó, sanó, fue crucificado y resucitó.\n\n¿Qué aspecto de su vida o enseñanza quieres explorar?`},
+    {p:/salmo|salmos\b|david.*escribió|libro.*poesía/i, r:()=>`Los Salmos son el libro de oración de la Biblia — 150 poemas que cubren todo el espectro humano: alabanza, dolor, enojo, duda, gratitud, desesperación, esperanza.\n\nEl más famoso: *"Jehová es mi pastor; nada me faltará."* — Salmo 23\n\nEl más honesto sobre el dolor: Salmo 22, que empieza con el grito de Jesús en la cruz.\n\n¿Buscas algún Salmo en particular o quieres que te recomiende uno según lo que sientes hoy?`},
+    {p:/proverbios|sabiduría.*práctica|sabiduría bíblica/i, r:()=>`Proverbios es el libro de sabiduría práctica de la Biblia. *"El principio de la sabiduría es el temor de Jehová."* — Proverbios 1:7\n\nTiene 31 capítulos — uno por cada día del mes. Abarca finanzas, relaciones, trabajo, familia, lenguaje, amistad. Es increíblemente aplicable hoy.\n\n¿Sobre qué área de tu vida quieres sabiduría?`},
+    {p:/pablo|cartas de pablo|epístolas|romanos|corintios|gálatas|efesios|filipenses/i, r:()=>`Pablo escribió 13 de los 27 libros del Nuevo Testamento. Fue primero perseguidor de cristianos hasta que tuvo un encuentro radical con Jesús en el camino a Damasco (Hechos 9).\n\nSus cartas más influyentes:\n• **Romanos** — teología de la salvación\n• **1 Corintios 13** — el famoso capítulo sobre el amor\n• **Gálatas** — libertad en Cristo vs legalismo\n• **Filipenses** — gozo en medio del sufrimiento\n\n¿Cuál quieres explorar?`},
+    {p:/perdón|perdonar|culpa|me siento culpable|cometí un.*pecado|pecado/i, r:()=>`El perdón es el corazón del evangelio cristiano. *"Si confesamos nuestros pecados, él es fiel y justo para perdonar nuestros pecados y limpiarnos de toda maldad."* — 1 Juan 1:9\n\nNo hay nada tan grave que esté más allá de la gracia de Dios. Pedro negó a Jesús 3 veces y fue restaurado completamente. Pablo perseguía y mataba cristianos antes de ser apóstol.\n\n¿Hay algo específico que te pesa?`},
+    {p:/muerte|morir|qué pasa cuando morimos|vida.*después|cielo|infierno/i, r:()=>`La Biblia habla de esperanza más allá de la muerte. Jesús dijo: *"Yo soy la resurrección y la vida; el que cree en mí, aunque esté muerto, vivirá."* — Juan 11:25\n\nPablo escribe que "estar ausente del cuerpo es estar con el Señor" (2 Corintios 5:8).\n\nNo es solo sobre el cielo — es sobre una relación con Dios que comienza ahora y continúa para siempre. ¿Estás atravesando una pérdida o es una pregunta más general?`},
+    {p:/trinidad|padre.*hijo.*espíritu|espíritu (santo|de dios)/i, r:()=>`La Trinidad es el misterio más profundo del cristianismo: un solo Dios en tres personas — Padre, Hijo y Espíritu Santo. No se explica fácilmente con lógica humana.\n\nUna analogía imperfecta: el agua puede ser líquido, hielo y vapor — misma sustancia, formas distintas.\n\nLa Trinidad aparece en el bautismo de Jesús (Mateo 3): el Hijo en el agua, el Espíritu como paloma, el Padre hablando desde el cielo.\n\n¿Qué parte te genera más preguntas?`},
+    {p:/fe\b|qué es la fe|cómo tener fe|tengo poca fe/i, r:()=>`*"La fe es la certeza de lo que se espera, la convicción de lo que no se ve."* — Hebreos 11:1\n\nLa fe bíblica no es creer sin evidencia — es confiar en una persona (Dios) basándote en lo que ya conoces de Él. Es como confiar en un puente: no analizas cada tornillo, simplemente caminas porque el puente ha demostrado ser sólido.\n\nLa fe crece con la experiencia. ¿En qué área sientes que tu fe necesita crecer?`},
+    {p:/noé|arca|diluvio|génesis.*6|génesis.*7/i, r:()=>`Noé es uno de los grandes ejemplos de fe obediente. Construyó un arca sin haber visto lluvia torrencial — solo porque confió en la palabra de Dios.\n\n*"Noé halló gracia ante los ojos de Jehová."* — Génesis 6:8\n\nEl arcoíris al final no es solo un fenómeno natural — es la primera promesa (alianza) de Dios registrada en la Biblia. La señal de que Dios mantiene sus compromisos.`},
+    {p:/apocalipsis|fin del mundo|revelación|últimos tiempos|tribulación/i, r:()=>`El Apocalipsis es el libro más malinterpretado de la Biblia. Fue escrito en lenguaje simbólico (apocalíptico) para cristianos bajo persecución romana — no era un manual de predicción del futuro.\n\nSu mensaje central es de **esperanza**: Dios tiene la última palabra sobre la historia.\n\n*"He aquí yo hago nuevas todas las cosas."* — Apocalipsis 21:5\n\n¿Qué parte específica del Apocalipsis te genera curiosidad o preocupación?`},
+    {p:/10 mandamientos|diez mandamientos|éxodo.*20|mandamiento/i, r:()=>`Los Diez Mandamientos (Éxodo 20) son el fundamento de la ley mosaica. Jesús los resumió en dos principios (Mateo 22:37-39):\n\n1. Amar a Dios con todo tu corazón, alma y mente\n2. Amar al prójimo como a ti mismo\n\nPablo añade: "El amor es el cumplimiento de la ley" (Romanos 13:10). No son reglas para ganarte el amor de Dios — son el fruto natural de quien ya lo tiene. ¿Cuál mandamiento te genera más reflexión?`},
+    {p:/iglesia|congregación|dónde.*iglesia|cómo.*iglesia/i, r:()=>`La comunidad cristiana es importante en la fe. *"No dejando de congregarnos, como algunos tienen por costumbre."* — Hebreos 10:25\n\nEn la sección de Iglesias de la app puedes encontrar congregaciones cercanas a tu ubicación y registrar tu propia iglesia si eres líder.\n\nSi buscas una iglesia, te recomiendo buscar una donde:\n• La Biblia sea el centro de la enseñanza\n• Sientas que puedes hacer preguntas\n• Haya comunidad real fuera del domingo`},
+  ],
+  en:[
+    {p:/^(hello|hi\b|hey|good morning|good evening|good afternoon|greetings)/i, r:(n)=>`Hello${n?' '+n:''}! 🙏 I'm your MyFather AI Tutor. I can walk alongside you through the Bible, answer faith questions, or simply listen. What would you like to talk about today?`},
+    {p:/^(thanks|thank you|ty|appreciate it|amen)/i, r:()=>`You're welcome! *"Give thanks in all circumstances; for this is God's will for you."* — 1 Thessalonians 5:18 🙏`},
+    {p:/sad|depressed|feeling (low|down|bad)|lonely|crying|hurting/i, r:()=>`I'm sorry you're going through this. God sees your pain. *"The Lord is close to the brokenhearted and saves those who are crushed in spirit."* — Psalm 34:18\n\nYou don't have to carry this alone. Would you like to tell me what's going on?`},
+    {p:/anxious|anxiety|worried|worry|stress|overwhelmed/i, r:()=>`Anxiety is real and exhausting. God knows. *"Do not be anxious about anything, but in every situation, by prayer and petition, present your requests to God. And the peace of God, which transcends all understanding, will guard your hearts."* — Philippians 4:6-7\n\nWhat's worrying you?`},
+    {p:/jesus|christ|who is jesus|life of jesus/i, r:()=>`Jesus is the center of Christian faith. He said: *"I am the way and the truth and the life. No one comes to the Father except through me."* — John 14:6\n\nHe was more than a moral teacher — his first followers recognized him as God made flesh (John 1:14). What would you like to know about him?`},
+    {p:/pray|prayer|how (do I|to) pray|don't know how to pray/i, r:()=>`Prayer is simply talking with God like you would with someone who deeply loves you. No perfect words needed.\n\nJesus taught the Lord's Prayer as a model (Matthew 6:9-13):\n• Worship: "Our Father... hallowed be your name"\n• Petition: "Give us today our daily bread"\n• Forgiveness: "Forgive us our debts"\n• Protection: "Deliver us from evil"\n\nYou can start right now with: *"God, I'm not sure how to pray, but here I am..."*`},
+    {p:/bible.*start|where (do I|to) start|how (to|do you) read the bible/i, r:()=>`To know Jesus: start with the **Gospel of John** — the most personal of the 4 Gospels.\n\nFor epic stories: **Genesis, Exodus, Samuel, Daniel**.\n\nFor daily wisdom: **Proverbs** (31 chapters, one per day of the month).\n\nFor honest prayer: **Psalms**.\n\nWhat are you looking for right now?`},
+    {p:/forgive|forgiveness|guilt|feel guilty|sin|sinned/i, r:()=>`Forgiveness is the heart of the Gospel. *"If we confess our sins, he is faithful and just and will forgive us our sins and purify us from all unrighteousness."* — 1 John 1:9\n\nNothing is beyond God's grace. Peter denied Jesus 3 times and was fully restored. Paul persecuted Christians before becoming an apostle.\n\nIs there something specific weighing on you?`},
+    {p:/death|dying|what happens when we die|heaven|hell|afterlife/i, r:()=>`The Bible speaks of hope beyond death. Jesus said: *"I am the resurrection and the life. The one who believes in me will live, even though they die."* — John 11:25\n\nPaul writes that "to be absent from the body is to be present with the Lord" (2 Corinthians 5:8).\n\nAre you dealing with a loss, or is this a more general question?`},
+    {p:/faith|what is faith|how (to have|do I get) faith/i, r:()=>`*"Now faith is confidence in what we hope for and assurance about what we do not see."* — Hebrews 11:1\n\nFaith isn't belief without evidence — it's trusting a person (God) based on what you already know about him. Like trusting a bridge: you don't analyze every bolt, you walk because it has proven solid.\n\nFaith grows through experience. In what area do you feel your faith needs to grow?`},
+  ]
+};
+
+function getCapa1(txt){
+  const pool = PREP[state.lang==='en'?'en':'es']||PREP.es;
+  const lower = txt.toLowerCase();
+  for(const e of pool){ if(e.p.test(lower)) return e.r(state.user?.name||''); }
+  return null;
+}
+
+// Keywords que activan DeepSeek (preguntas teológicas profundas)
+const DEEP_KW = ['teodicea','predestinación','predestination','libre albedrío','free will','sufrimiento y dios','why does god allow','encarnación','escatología','expiación','atonement','hermenéutica','apologética','diferencia entre','compare','contradice','contradicción','qué dice la biblia sobre','what does the bible say about','explain','explica','profundamente','análisis','analiza'];
+
+function needsDeep(txt){ return txt.length > 90 || DEEP_KW.some(k=>txt.toLowerCase().includes(k)); }
+
+function renderMsg(reply, lid){
+  const msgs = document.getElementById('chat-msgs');
+  document.getElementById(lid)?.remove();
+  const vm = reply.match(/["""]([^"""]{10,})["""]\s*[—–-]\s*(\S[^\n]{0,60})/);
+  let main=esc(reply), vhtml='';
+  if(vm){ vhtml=`<div class="msg-verse">${esc(vm[1])}<div class="msg-ref">— ${esc(vm[2])}</div></div>`; main=esc(reply.replace(vm[0],'')).trim(); }
+  msgs.innerHTML += `<div class="message ai"><div class="msg-avatar">✝️</div><div><div class="msg-bubble">${main}${vhtml}</div></div></div>`;
+  msgs.scrollTop = msgs.scrollHeight;
 }
 
 async function sendChat(){
   if(chatBusy) return;
-  const inp=document.getElementById('chat-inp');
-  const txt=inp.value.trim(); if(!txt) return;
+  const inp = document.getElementById('chat-inp');
+  const txt = inp.value.trim(); if(!txt) return;
   inp.value='';
-  const msgs=document.getElementById('chat-msgs');
+  const msgs = document.getElementById('chat-msgs');
   if(!msgs) return;
 
-  msgs.innerHTML+=`<div class="message user"><div class="msg-avatar">👤</div><div><div class="msg-bubble">${esc(txt)}</div></div></div>`;
+  msgs.innerHTML += `<div class="message user"><div class="msg-avatar">👤</div><div><div class="msg-bubble">${esc(txt)}</div></div></div>`;
 
-  // Crisis check siempre primero
-  const cr=detectCrisis(txt);
-  if(cr==='suicide'){
-    logCrisis('suicide', txt);
-    msgs.innerHTML+=crisisMsg(); msgs.scrollTop=msgs.scrollHeight; return;
-  }
-  if(cr==='abuse'){
-    logCrisis('abuse', txt);
-    msgs.innerHTML+=abuseMsg(); msgs.scrollTop=msgs.scrollHeight; return;
-  }
+  // Crisis siempre primero
+  const cr = detectCrisis(txt);
+  if(cr==='suicide'){ msgs.innerHTML+=crisisMsg(); msgs.scrollTop=msgs.scrollHeight; return; }
+  if(cr==='abuse')  { msgs.innerHTML+=abuseMsg();  msgs.scrollTop=msgs.scrollHeight; return; }
 
-  // Routing híbrido
-  const route = routeMessage(txt);
-
-  // Capa 1: instantánea, sin API — no cuenta contra el límite
-  if(route.layer === 1){
-    const reply = route.response;
-    state.chatHistory.push({role:'user',content:txt},{role:'assistant',content:reply});
-    saveChatMessage(txt, reply);
-    const vm=reply.match(/\*([^*]{10,})\*\s*[—–-]\s*(\S[^\n]{0,50})/);
-    let main=esc(reply),vhtml='';
-    if(vm){vhtml=`<div class="msg-verse">${esc(vm[1])}<div class="msg-ref">— ${esc(vm[2])}</div></div>`;main=esc(reply.replace(vm[0],'')).trim();}
-    msgs.innerHTML+=`<div class="message ai"><div class="msg-avatar">✝️</div><div><div class="msg-bubble">${main}${vhtml}</div></div></div>`;
-    msgs.scrollTop=msgs.scrollHeight;
+  // ── Capa 1: Respuesta preprogramada ──
+  const capa1 = getCapa1(txt);
+  if(capa1 && !needsDeep(txt)){
+    const fake = 'l'+Date.now();
+    state.chatHistory.push({role:'user',content:txt},{role:'assistant',content:capa1});
+    msgs.innerHTML += `<div class="message ai" id="${fake}"></div>`;
+    renderMsg(capa1, fake);
+    // Guardar en DB (no bloquear)
+    if(state.user) db.from('chat_sessions').insert({user_id:state.user.id,mode:state.mode,lang:state.lang,messages:[{role:'user',content:txt},{role:'assistant',content:capa1}],created_at:new Date().toISOString()}).catch(()=>{});
     return;
   }
 
-  // Capas 2 y 3 — verificar límite del plan
-  if(!canSendMsg()){
-    const lim = getMsgLimit();
+  // ── Capa 2/3: Verificar límite ──
+  if(!canChat()){
     const isEs = state.lang==='es';
-    const upgradeBtn = `<button class="btn btn-gold btn-sm" style="margin-top:10px" onclick="navigate('pricing-page')">
-      ${isEs?'Ver planes →':'See plans →'}
-    </button>`;
-    msgs.innerHTML+=`<div class="message ai"><div class="msg-avatar">✝️</div><div><div class="msg-bubble">
-      ${isEs
-        ? `Has usado tus <strong>${lim} mensajes gratuitos</strong> de este mes. Puedes comprar mensajes adicionales en la tienda o actualizar tu plan para continuar.`
-        : `You've used your <strong>${lim} free messages</strong> this month. Buy extra messages in the store or upgrade your plan to continue.`}
+    msgs.innerHTML += `<div class="message ai"><div class="msg-avatar">✝️</div><div><div class="msg-bubble">
+      ${isEs?`Has usado todos tus mensajes IA de este mes (${msgLimit()}). Puedes comprar más o actualizar tu plan.`:`You've used all your AI messages this month (${msgLimit()}). Buy more or upgrade your plan.`}
       <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-        ${upgradeBtn}
-        <button class="btn btn-outline btn-sm" onclick="navigateApp('store')">
-          ${isEs?'Tienda de mensajes ✨':'Message store ✨'}
-        </button>
+        <button class="btn btn-gold btn-sm" onclick="navigate('pricing-page')">${isEs?'Ver planes →':'See plans →'}</button>
+        <button class="btn btn-outline btn-sm" onclick="navigateApp('store')">${isEs?'Comprar mensajes':'Buy messages'}</button>
       </div>
     </div></div></div>`;
-    msgs.scrollTop=msgs.scrollHeight;
+    msgs.scrollTop = msgs.scrollHeight;
     return;
   }
 
-  // Capas 2 y 3: necesitan API
-  const lid='l'+Date.now();
-  const layerLabel = route.layer===3
-    ? `<span style="font-size:9px;opacity:0.4;margin-left:6px">⚡ Deep</span>`
-    : `<span style="font-size:9px;opacity:0.4;margin-left:6px">⚡ Fast</span>`;
-  msgs.innerHTML+=`<div class="message ai" id="${lid}"><div class="msg-avatar">✝️</div><div><div class="msg-bubble"><div class="loading-dots"><span></span><span></span><span></span></div></div></div></div>`;
-  msgs.scrollTop=msgs.scrollHeight; chatBusy=true;
+  // ── Capa 2/3: DeepSeek vía Worker ──
+  const lid = 'l'+Date.now();
+  msgs.innerHTML += `<div class="message ai" id="${lid}"><div class="msg-avatar">✝️</div><div><div class="msg-bubble"><div class="loading-dots"><span></span><span></span><span></span></div></div></div></div>`;
+  msgs.scrollTop = msgs.scrollHeight;
+  chatBusy = true;
+
+  const lng = state.lang==='en'?'English':'Spanish (español)';
+  const deep = needsDeep(txt);
+  const sys = state.mode==='kids'
+    ? `You are a warm biblical guide for children ages 4-12. Always respond in ${lng}. Use simple language and emojis ⭐🙏. NEVER inappropriate content. If danger, say to talk to a trusted adult. Max 3 short paragraphs.`
+    : `You are a wise Christian biblical tutor for MyFather app. Always respond in ${lng}. Cite Bible verses with exact references. Be compassionate and deep. If suicidal thoughts, respond with love and include crisis resources immediately. Max ${deep?280:120} words.`;
 
   try{
-    const result = await callAI(txt, route.layer === 3);
-    const reply = result.text;
+    const r = await fetch(`${CF}/ai/chat`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({layer:deep?3:2,system:sys,messages:[...state.chatHistory.slice(-6),{role:'user',content:txt}],max_tokens:deep?500:180})
+    });
+    if(!r.ok) throw new Error(`Worker ${r.status}`);
+    const d = await r.json();
+    if(d.error) throw new Error(d.error);
+    const reply = d.content?.[0]?.text || (state.lang==='en'?'Could not get a response.':'No se pudo obtener respuesta.');
     state.chatHistory.push({role:'user',content:txt},{role:'assistant',content:reply});
-    state.msgThisMonth++; // incrementar contador
-    saveChatMessage(txt, reply);
-    document.getElementById(lid)?.remove();
-    const vm=reply.match(/["""]([^"""]{10,})["""]\s*[—–-]\s*(\S[^\n]{0,50})/);
-    let main=esc(reply),vhtml='';
-    if(vm){vhtml=`<div class="msg-verse">${esc(vm[1])}<div class="msg-ref">— ${esc(vm[2])}</div></div>`;main=esc(reply.replace(vm[0],'')).trim();}
-    msgs.innerHTML+=`<div class="message ai"><div class="msg-avatar">✝️</div><div><div class="msg-bubble">${main}${vhtml}${layerLabel}</div></div></div>`;
+    state.msgThisMonth++;
+    renderMsg(reply, lid);
+    // Guardar en DB
+    if(state.user) db.from('chat_sessions').insert({user_id:state.user.id,mode:state.mode,lang:state.lang,messages:[{role:'user',content:txt},{role:'assistant',content:reply}],created_at:new Date().toISOString()}).catch(()=>{});
   }catch(e){
     document.getElementById(lid)?.remove();
-    msgs.innerHTML+=`<div class="message ai"><div class="msg-avatar">✝️</div><div><div class="msg-bubble" style="color:rgba(245,240,232,0.5)">${t('chatError')}</div></div></div>`;
+    const isEs = state.lang==='es';
+    msgs.innerHTML += `<div class="message ai"><div class="msg-avatar">✝️</div><div><div class="msg-bubble" style="color:rgba(245,240,232,0.5)">${isEs?'Hubo un problema de conexión. Intenta de nuevo.':'Connection issue. Please try again.'}</div></div></div>`;
+    msgs.scrollTop = msgs.scrollHeight;
   }
-  chatBusy=false; msgs.scrollTop=msgs.scrollHeight;
+  chatBusy=false;
+  msgs.scrollTop = msgs.scrollHeight;
 }
 function crisisMsg(){return `<div class="message ai"><div class="msg-avatar">🕊️</div><div><div class="msg-bubble">${t('chatCrisisMsg')}<div class="msg-crisis"><div class="msg-crisis-title">${t('chatCrisisLines')}</div>${crisisLines.slice(0,4).map(l=>`<div class="msg-crisis-line">${l.country}: <strong>${l.number}</strong> (${l.name})</div>`).join('')}<div style="margin-top:10px"><button class="btn btn-danger btn-sm" onclick="showCrisis()">${t('chatSeeAll')}</button></div></div>${t('chatCrisisEnd')}</div></div></div>`;}
 function abuseMsg(){return `<div class="message ai"><div class="msg-avatar">🕊️</div><div><div class="msg-bubble">${t('chatAbuseMsg')}<div class="msg-crisis" style="border-color:rgba(201,151,58,0.4)"><div class="msg-crisis-title" style="color:var(--gold-lt)">⚠️ ${t('chatAbuseTip')}</div><div class="msg-crisis-line">${t('chatAbuseSub')}</div><div style="margin-top:10px"><button class="btn btn-outline btn-sm" onclick="showCrisis()">${t('chatSeeAll')}</button></div></div></div></div></div>`;}
@@ -2345,127 +1746,22 @@ function buildLessons(){
   const list=(LESSONS[state.lang]||LESSONS.es).filter(l=>l.kids===isK);
   return `<div class="page-header"><h1>${t('lessonsTitle')}</h1><p>${isK?t('lessonsKidsSub'):t('lessonsAdultSub')}</p></div>
 <div class="lessons-grid">
-${list.map(l=>`<div class="lesson-card ${isK?'kids-card':''}" style="cursor:pointer" onclick="openLesson(${l.id})">
+${list.map(l=>`<div class="lesson-card ${isK?'kids-card':''}">
   <div class="lesson-thumb"><span style="position:relative;z-index:1;font-size:52px">${l.emoji}</span>
   ${l.progress===100?`<div style="position:absolute;top:10px;right:10px;background:rgba(61,107,79,0.85);color:#7ecfa0;font-size:11px;padding:3px 8px;border-radius:10px">${t('lessonDone')}</div>`:''}
   ${l.progress>0&&l.progress<100?`<div style="position:absolute;top:10px;right:10px;background:rgba(201,151,58,0.85);color:var(--ink);font-size:11px;padding:3px 8px;border-radius:10px">${t('lessonProgress')}</div>`:''}
   </div>
   <div class="lesson-body">
     <div class="lesson-title">${l.title}</div>
-    <div style="font-size:12px;color:rgba(245,240,232,0.45);margin:4px 0 8px;line-height:1.5">${l.desc||''}</div>
     <div class="lesson-meta"><span>⏱ ${l.duration}</span><span>📊 ${l.level}</span></div>
     <div class="lesson-progress"><div class="lesson-progress-fill" style="width:${l.progress}%"></div></div>
-    <button class="btn btn-gold btn-sm" style="margin-top:14px;width:100%;justify-content:center">
+    <button class="btn btn-gold btn-sm" style="margin-top:14px;width:100%;justify-content:center" onclick="showToast('${t('toastLessonSoon')}')">
       ${l.progress>0&&l.progress<100?t('lessonContinue'):l.progress===100?t('lessonRepeat'):t('lessonStart')}
     </button>
   </div>
 </div>`).join('')}
 </div>`;
 }
-
-function openLesson(id){
-  const all=[...LESSONS.es,...LESSONS.en];
-  const l=all.find(x=>x.id===id);
-  if(!l) return;
-  const isK=state.mode==='kids';
-  const lang=state.lang;
-  const mc=document.getElementById('main-content');
-  if(!mc) return;
-
-  // Contenido real por lección
-  const LESSON_CONTENT = {
-    es:{
-      1:{steps:[
-        {title:'La Creación',icon:'🌍',text:'En el principio, Dios creó los cielos y la tierra. La tierra estaba desordenada y vacía, y las tinieblas cubrían el abismo. El Espíritu de Dios se movía sobre las aguas.',verse:'Génesis 1:1-2'},
-        {title:'Los 6 días',icon:'☀️',text:'Dios creó la luz el día 1, el firmamento el día 2, la tierra y las plantas el día 3, los astros el día 4, los animales del mar y aire el día 5, los animales terrestres y al ser humano el día 6.',verse:'Génesis 1:3-31'},
-        {title:'Adán y Eva',icon:'🌿',text:'Dios formó al hombre del polvo de la tierra, y sopló en su nariz aliento de vida. Plantó el jardín del Edén y puso al hombre para que lo labrara y guardara.',verse:'Génesis 2:7,15'},
-        {title:'La Caída',icon:'🍎',text:'La serpiente engañó a Eva para que comiera del fruto prohibido. Adán también comió. Esto introdujo el pecado y la muerte en el mundo, separando a la humanidad de Dios.',verse:'Génesis 3:1-24'},
-        {title:'Reflexión',icon:'🙏',text:'La creación nos enseña que Dios es el origen de toda vida y que todo lo que hizo era "muy bueno". Nuestro propósito es cuidar su creación y vivir en relación con Él.',verse:'Génesis 1:31'},
-      ]},
-      2:{steps:[
-        {title:'El Contexto',icon:'⛰️',text:'Jesús subió al monte con sus discípulos. Una gran multitud lo seguía. El Sermón del Monte es el discurso más largo de Jesús registrado en los Evangelios.',verse:'Mateo 5:1-2'},
-        {title:'Las Bienaventuranzas',icon:'✨',text:'Bienaventurados los pobres en espíritu, los que lloran, los mansos, los que tienen hambre de justicia, los misericordiosos, los de limpio corazón, los pacificadores y los perseguidos.',verse:'Mateo 5:3-12'},
-        {title:'Sal y Luz',icon:'💡',text:'"Vosotros sois la sal de la tierra... Vosotros sois la luz del mundo." Jesús llama a sus seguidores a tener impacto en el mundo, no a esconderse.',verse:'Mateo 5:13-16'},
-        {title:'La Ley Nueva',icon:'📜',text:'Jesús no vino a abolir la ley sino a cumplirla. Eleva los estándares: no solo el acto de matar, sino el odio; no solo el adulterio, sino la lujuria del corazón.',verse:'Mateo 5:17-48'},
-        {title:'El Padre Nuestro',icon:'🙏',text:'En este sermón Jesús enseñó la oración modelo: el Padre Nuestro. Una oración que cubre adoración, petición, arrepentimiento y dependencia de Dios.',verse:'Mateo 6:9-13'},
-      ]},
-      101:{steps:[
-        {title:'¿Quién era Noé?',icon:'👨',text:'Noé era un hombre muy bueno que amaba a Dios. Vivía en un tiempo cuando la mayoría de las personas hacían cosas malas y no pensaban en Dios para nada.',verse:'Génesis 6:9'},
-        {title:'Dios habla con Noé',icon:'🌧️',text:'Dios le dijo a Noé: "Voy a enviar una gran lluvia para limpiar la tierra. Pero tú y tu familia están seguros. ¡Construye un barco grandísimo llamado arca!"',verse:'Génesis 6:13-14'},
-        {title:'El Arca',icon:'🚢',text:'El arca era enormísima — ¡como 50 autobuses de largo! Noé y sus hijos la construyeron con madera. Tomó muchos años pero Noé obedeció a Dios.',verse:'Génesis 6:15-22'},
-        {title:'Los Animales',icon:'🦒',text:'Dios envió a los animales — dos de cada especie — hacia el arca. Leones, jirafas, elefantes, mariposas... ¡todos entraron! Noé y su familia también subieron.',verse:'Génesis 7:8-9'},
-        {title:'El Arcoíris',icon:'🌈',text:'Después de 40 días de lluvia, el agua bajó. Dios puso un arcoíris en el cielo como promesa: ¡nunca más un diluvio así! El arcoíris es la promesa de Dios para siempre.',verse:'Génesis 9:13-15'},
-      ]},
-      102:{steps:[
-        {title:'El Gigante',icon:'⚔️',text:'Goliat era un guerrero gigante del ejército enemigo. ¡Medía más de 2 metros y medio! Tenía una armadura pesadísima y una lanza enorme. Todos le tenían miedo.',verse:'1 Samuel 17:4-7'},
-        {title:'David llega',icon:'🐑',text:'David era un niño pastor que cuidaba ovejas. Un día su papá lo mandó a llevar comida a sus hermanos soldados. David vio a Goliat burlándose de Dios.',verse:'1 Samuel 17:17-26'},
-        {title:'David se ofrece',icon:'🦁',text:'David le dijo al rey Saúl: "Yo peleo contra Goliat." Saúl dijo "¡eres muy joven!" Pero David contó cómo Dios lo ayudó a vencer leones y osos para proteger sus ovejas.',verse:'1 Samuel 17:32-37'},
-        {title:'La Pelea',icon:'🎯',text:'David tomó 5 piedras y su honda. Goliat se burló de él. David corrió hacia el gigante, giró la honda y... ¡PLOP! La piedra golpeó la frente de Goliat y cayó al suelo.',verse:'1 Samuel 17:48-49'},
-        {title:'La Lección',icon:'💪',text:'David ganó no porque fuera grande o fuerte, sino porque confió en Dios. Con Dios podemos enfrentar los "gigantes" de nuestra vida — el miedo, los problemas — y ganar.',verse:'1 Samuel 17:45-47'},
-      ]},
-    },
-    en:{
-      1:{steps:[
-        {title:'Creation',icon:'🌍',text:'In the beginning, God created the heavens and the earth. The earth was formless and empty, and darkness covered the deep waters. The Spirit of God was hovering over the surface of the waters.',verse:'Genesis 1:1-2'},
-        {title:'6 Days',icon:'☀️',text:'God created light on day 1, sky on day 2, land and plants on day 3, sun/moon/stars on day 4, sea creatures and birds on day 5, and land animals plus humans on day 6.',verse:'Genesis 1:3-31'},
-        {title:'Adam & Eve',icon:'🌿',text:'God formed man from the dust of the ground and breathed life into his nostrils. He planted the Garden of Eden and placed the man there to tend and watch over it.',verse:'Genesis 2:7,15'},
-        {title:'The Fall',icon:'🍎',text:'The serpent deceived Eve into eating the forbidden fruit. Adam also ate. This introduced sin and death into the world, separating humanity from God.',verse:'Genesis 3:1-24'},
-        {title:'Reflection',icon:'🙏',text:'Creation teaches us that God is the source of all life and that everything He made was "very good." Our purpose is to care for His creation and live in relationship with Him.',verse:'Genesis 1:31'},
-      ]},
-      101:{steps:[
-        {title:'Who was Noah?',icon:'👨',text:"Noah was a very good man who loved God. He lived in a time when most people were doing bad things and didn't think about God at all.",verse:'Genesis 6:9'},
-        {title:'God speaks',icon:'🌧️',text:'"I will send a great rain," God told Noah. "But you and your family are safe. Build a huge boat called an ark!"',verse:'Genesis 6:13-14'},
-        {title:'The Ark',icon:'🚢',text:'The ark was enormous — like 50 buses long! Noah and his sons built it from wood. It took many years, but Noah obeyed God.',verse:'Genesis 6:15-22'},
-        {title:'The Animals',icon:'🦒',text:'God sent two of every animal to the ark — lions, giraffes, elephants, butterflies... they all came! Noah and his family boarded too.',verse:'Genesis 7:8-9'},
-        {title:'The Rainbow',icon:'🌈',text:"After 40 days of rain, the water went down. God put a rainbow in the sky as a promise: never again! The rainbow is God's promise forever.",verse:'Genesis 9:13-15'},
-      ]},
-    }
-  };
-
-  const content = (LESSON_CONTENT[lang]||LESSON_CONTENT.es)[id];
-  const steps = content?.steps || [{title:l.title,icon:l.emoji,text:lang==='es'?'Contenido completo próximamente. Por ahora habla con el Tutor IA sobre esta lección.':'Full content coming soon. For now, ask the AI Tutor about this lesson.',verse:''}];
-  let currentStep = 0;
-
-  function renderStep(s){
-    const step = steps[s];
-    const isLast = s === steps.length-1;
-    const isKids = state.mode==='kids';
-    return `
-    <div style="animation:fadeIn .3s ease">
-      <button class="btn btn-ghost btn-sm" onclick="navigateApp('lessons')" style="margin-bottom:20px">← ${lang==='es'?'Volver':'Back'}</button>
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px">
-        <span style="font-size:40px">${l.emoji}</span>
-        <div>
-          <div style="font-family:var(--font-serif);font-size:22px;font-weight:300">${l.title}</div>
-          <div style="font-size:12px;color:rgba(245,240,232,0.4)">${lang==='es'?'Paso':'Step'} ${s+1} ${lang==='es'?'de':'of'} ${steps.length}</div>
-        </div>
-      </div>
-      <div style="display:flex;gap:4px;margin-bottom:28px">
-        ${steps.map((_,i)=>`<div style="flex:1;height:4px;border-radius:2px;background:${i<=s?'var(--gold)':'rgba(245,240,232,0.12)'}"></div>`).join('')}
-      </div>
-      <div class="card" style="${isKids?'background:rgba(107,189,227,0.12);border-color:rgba(107,189,227,0.25);':''}padding:28px;margin-bottom:20px">
-        <div style="font-size:40px;margin-bottom:16px;text-align:center">${step.icon}</div>
-        <div style="font-family:var(--font-serif);font-size:20px;font-weight:300;margin-bottom:16px;color:var(--gold)">${step.title}</div>
-        <div style="font-size:${isKids?'17px':'15px'};line-height:1.8;color:rgba(245,240,232,0.85)">${step.text}</div>
-        ${step.verse?`<div style="margin-top:20px;padding:14px;background:rgba(201,151,58,0.08);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;font-style:italic;font-size:13px;color:var(--gold-lt)">📖 ${step.verse}</div>`:''}
-      </div>
-      <div style="display:flex;gap:10px;justify-content:space-between">
-        <button class="btn btn-ghost" ${s===0?'disabled style="opacity:0.3"':''} onclick="lessonStep(${id},${s-1},${steps.length})">← ${lang==='es'?'Anterior':'Previous'}</button>
-        ${isLast
-          ? `<button class="btn btn-gold" onclick="navigateApp('chat')">${lang==='es'?'💬 Preguntar al Tutor IA':'💬 Ask AI Tutor'}</button>`
-          : `<button class="btn btn-gold" onclick="lessonStep(${id},${s+1},${steps.length})">${lang==='es'?'Siguiente →':'Next →'}</button>`}
-      </div>
-      ${isLast?`<div style="margin-top:16px;text-align:center;font-size:13px;color:rgba(245,240,232,0.4)">✅ ${lang==='es'?'¡Lección completada!':'Lesson completed!'}</div>`:''}
-    </div>`;
-  }
-
-  window.lessonStep = function(lid,step,total){
-    document.getElementById('main-content').innerHTML = renderStep(step);
-  };
-
-  mc.innerHTML = renderStep(0);
-}
-
 
 // ══════════════════════════════════
 // DEVOTIONAL
@@ -2493,165 +1789,51 @@ function buildDevotional(){
 // READING PLAN
 // ══════════════════════════════════
 function buildReading(){
-  const today=new Date().getDate()-1; // 0-based día del mes
-  const month=new Date().toLocaleString(state.lang==='en'?'en-US':'es-MX',{month:'long',year:'numeric'});
-  const daysInMonth=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();
-  const days=Array.from({length:daysInMonth},(_,i)=>({
-    n:i+1,
-    s: i<today?'done': i===today?'today':'upcoming'
-  }));
-  const isK=state.mode==='kids';
-
-  const READING_PLAN={
-    es:[
-      {book:'Génesis',ch:'1-2',title:'La Creación',text:'En el principio creó Dios los cielos y la tierra. Y la tierra estaba desordenada y vacía, y las tinieblas estaban sobre la faz del abismo...'},
-      {book:'Génesis',ch:'3',title:'La Caída',text:'Pero la serpiente era astuta, más que todos los animales del campo que Jehová Dios había hecho; la cual dijo a la mujer: ¿Conque Dios os ha dicho: No comáis de todo árbol del huerto?'},
-      {book:'Salmos',ch:'23',title:'El Señor es mi Pastor',text:'Jehová es mi pastor; nada me faltará. En lugares de delicados pastos me hará descansar; junto a aguas de reposo me pastoreará...'},
-      {book:'Mateo',ch:'5',title:'El Sermón del Monte',text:'Bienaventurados los pobres en espíritu, porque de ellos es el reino de los cielos. Bienaventurados los que lloran, porque ellos recibirán consolación...'},
-      {book:'Juan',ch:'3',title:'El Nuevo Nacimiento',text:'Porque de tal manera amó Dios al mundo, que ha dado a su Hijo unigénito, para que todo aquel que en él cree, no se pierda, mas tenga vida eterna...'},
-      {book:'Romanos',ch:'8',title:'Vida en el Espíritu',text:'Ahora, pues, ninguna condenación hay para los que están en Cristo Jesús, los que no andan conforme a la carne, sino conforme al Espíritu...'},
-      {book:'1 Corintios',ch:'13',title:'El Himno al Amor',text:'Si yo hablase lenguas humanas y angélicas, y no tengo amor, vengo a ser como metal que resuena, o címbalo que retiña...'},
-    ],
-    en:[
-      {book:'Genesis',ch:'1-2',title:'The Creation',text:'In the beginning God created the heavens and the earth. Now the earth was formless and empty, darkness was over the surface of the deep...'},
-      {book:'Psalm',ch:'23',title:'The Lord is My Shepherd',text:"The Lord is my shepherd, I lack nothing. He makes me lie down in green pastures, he leads me beside quiet waters, he refreshes my soul..."},
-      {book:'Matthew',ch:'5',title:'The Sermon on the Mount',text:'Blessed are the poor in spirit, for theirs is the kingdom of heaven. Blessed are those who mourn, for they will be comforted...'},
-      {book:'John',ch:'3',title:'Born Again',text:'For God so loved the world that he gave his one and only Son, that whoever believes in him shall not perish but have eternal life...'},
-      {book:'Romans',ch:'8',title:'Life Through the Spirit',text:'Therefore, there is now no condemnation for those who are in Christ Jesus, because through Christ Jesus the law of the Spirit who gives life has set you free...'},
-    ]
-  };
-
-  const plan=READING_PLAN[state.lang]||READING_PLAN.es;
-  const todayReading=plan[today%plan.length];
-
-  return `<div class="page-header"><h1>${t('readTitle')}</h1><p style="text-transform:capitalize">${month}</p></div>
+  const days=Array.from({length:31},(_,i)=>({n:i+1,s:i<15?'done':i===15?'today':'upcoming'}));
+  const books=(state.lang==='en'?['Genesis','Exodus','Psalms','Proverbs','Matthew','John','Romans']:['Génesis','Éxodo','Salmos','Proverbios','Mateo','Juan','Romanos']);
+  const active=state.lang==='en'?'Matthew':'Mateo';
+  return `<div class="page-header"><h1>${t('readTitle')}</h1><p>${t('readSub')}</p></div>
 <div class="reading-plan">
   <div class="plan-calendar">
-    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:6px">
-      ${(state.lang==='en'?['S','M','T','W','T','F','S']:['D','L','M','X','J','V','S']).map(d=>`<div style="font-size:10px;text-align:center;color:rgba(245,240,232,0.3);padding:4px">${d}</div>`).join('')}
-    </div>
-    <div class="plan-week" id="cal-days">
-      ${days.map(d=>`<div class="plan-day ${d.s}" onclick="${d.s==='today'?'markReadingDone()':''}">
-        <span class="day-num">${d.n}</span>
-        <span class="day-check">${d.s==='done'?'✓':''}</span>
-      </div>`).join('')}
-    </div>
+    <div style="font-size:13px;color:rgba(245,240,232,0.45);margin-bottom:12px;letter-spacing:.05em">${t('readMonthLabel')}</div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:6px">${t('readDays').map(d=>`<div style="font-size:10px;text-align:center;color:rgba(245,240,232,0.3);padding:4px">${d}</div>`).join('')}</div>
+    <div class="plan-week">${days.map(d=>`<div class="plan-day ${d.s}"><span class="day-num">${d.n}</span><span class="day-check">${d.s==='done'?'✓':''}</span></div>`).join('')}</div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
       <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:rgba(245,240,232,0.4)"><div style="width:10px;height:10px;border-radius:2px;background:rgba(61,107,79,0.6)"></div>${t('readLegendDone')}</div>
       <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:rgba(245,240,232,0.4)"><div style="width:10px;height:10px;border-radius:2px;background:rgba(201,151,58,0.5)"></div>${t('readLegendToday')}</div>
     </div>
-    <div style="margin-top:16px;padding:12px;background:rgba(201,151,58,0.08);border-radius:10px;font-size:13px">
-      🔥 ${state.lang==='es'?`Racha actual: <strong style="color:var(--gold)">${state.streak} días</strong>`:`Current streak: <strong style="color:var(--gold)">${state.streak} days</strong>`}
-    </div>
   </div>
   <div>
+    <div class="book-select">${books.map(b=>`<button class="book-btn ${b===active?'active':''}" onclick="this.closest('.book-select').querySelectorAll('.book-btn').forEach(x=>x.classList.remove('active'));this.classList.add('active')">${b}</button>`).join('')}</div>
     <div class="passage-card">
-      <div style="font-size:12px;color:var(--gold);margin-bottom:4px;letter-spacing:.08em">${t('readTodayLabel')}</div>
-      <div style="font-size:18px;font-family:var(--font-serif);margin-bottom:4px">${todayReading.title}</div>
-      <div style="font-size:12px;color:rgba(245,240,232,0.4);margin-bottom:16px">${todayReading.book} ${todayReading.ch}</div>
-      <div class="passage-text" style="line-height:1.9;font-style:italic">"${todayReading.text}"</div>
+      <div style="font-size:12px;color:var(--gold);margin-bottom:16px;letter-spacing:.08em">${t('readTodayLabel')}</div>
+      <div class="passage-text">${PASSAGE[state.lang]||PASSAGE.es}</div>
       <div style="display:flex;gap:10px;margin-top:24px;flex-wrap:wrap">
-        <button class="btn btn-gold btn-sm" id="mark-read-btn" onclick="markReadingDone()">${t('readMark')}</button>
+        <button class="btn btn-gold btn-sm" onclick="showToast('${t('toastMarked')}')">${t('readMark')}</button>
         <button class="btn btn-ghost btn-sm" onclick="navigateApp('chat')">${t('readAsk')}</button>
+        <button class="btn btn-ghost btn-sm" onclick="showToast('${t('toastNote')}')">${t('readNote')}</button>
       </div>
-    </div>
-    <div style="margin-top:16px">
-      <div style="font-size:12px;color:rgba(245,240,232,0.4);margin-bottom:10px">${state.lang==='es'?'Lecturas disponibles:':'Available readings:'}</div>
-      ${plan.map((r,i)=>`<div style="display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid rgba(245,240,232,0.06);cursor:pointer" onclick="selectReading(${i})">
-        <div style="font-size:16px">${i<today?'✅':i===today?'📖':'⬜'}</div>
-        <div style="flex:1"><div style="font-size:13px;font-weight:500">${r.title}</div><div style="font-size:11px;color:rgba(245,240,232,0.4)">${r.book} ${r.ch}</div></div>
-      </div>`).join('')}
     </div>
   </div>
 </div>`;
 }
 
-async function markReadingDone(){
-  const btn=document.getElementById('mark-read-btn');
-  if(btn){ btn.disabled=true; btn.textContent='✓ '+( state.lang==='es'?'¡Marcado!':'Marked!'); }
-
-  // Actualizar racha en Supabase
-  if(state.user){
-    try{
-      const today=new Date().toISOString().split('T')[0];
-      // Guardar en reading_progress
-      await db.from('reading_progress').upsert({
-        user_id: state.user.id,
-        day_number: new Date().getDate(),
-        book: 'daily',
-        chapter: today,
-        read_at: new Date().toISOString()
-      },{onConflict:'user_id,day_number'});
-      // Incrementar racha y total_verses
-      const newStreak = state.streak+1;
-      await db.from('profiles').update({
-        streak: newStreak,
-        total_verses: (state.user.total_verses||0)+1,
-        updated_at: new Date().toISOString()
-      }).eq('id',state.user.id);
-      state.streak=newStreak;
-      state.user.total_verses=(state.user.total_verses||0)+1;
-      showToast(`🔥 ${state.lang==='es'?`¡Racha: ${newStreak} días!`:`Streak: ${newStreak} days!`}`);
-    }catch(e){ showToast(state.lang==='es'?'Guardado localmente':'Saved locally'); }
-  }
-}
-
-function selectReading(i){
-  const plan=(state.lang==='es'?[
-    {book:'Génesis',ch:'1-2',title:'La Creación',text:'En el principio creó Dios los cielos y la tierra...'},
-    {book:'Salmos',ch:'23',title:'El Señor es mi Pastor',text:'Jehová es mi pastor; nada me faltará...'},
-    {book:'Mateo',ch:'5',title:'El Sermón del Monte',text:'Bienaventurados los pobres en espíritu...'},
-    {book:'Juan',ch:'3',title:'El Nuevo Nacimiento',text:'Porque de tal manera amó Dios al mundo...'},
-    {book:'Romanos',ch:'8',title:'Vida en el Espíritu',text:'Ahora, pues, ninguna condenación hay para los que están en Cristo Jesús...'},
-    {book:'1 Corintios',ch:'13',title:'El Himno al Amor',text:'Si yo hablase lenguas humanas y angélicas, y no tengo amor...'},
-    {book:'Efesios',ch:'6',title:'La Armadura de Dios',text:'Por lo demás, hermanos míos, fortaleceos en el Señor, y en el poder de su fuerza...'},
-  ]:[
-    {book:'Genesis',ch:'1-2',title:'The Creation',text:'In the beginning God created the heavens and the earth...'},
-    {book:'Psalm',ch:'23',title:'The Lord is My Shepherd',text:'The Lord is my shepherd, I lack nothing...'},
-    {book:'Matthew',ch:'5',title:'Sermon on the Mount',text:'Blessed are the poor in spirit...'},
-    {book:'John',ch:'3',title:'Born Again',text:'For God so loved the world...'},
-    {book:'Romans',ch:'8',title:'Life Through the Spirit',text:'There is now no condemnation for those who are in Christ Jesus...'},
-  ]);
-  const r=plan[i]||plan[0];
-  const pc=document.querySelector('.passage-text');
-  const pt=document.querySelector('.passage-card div');
-  if(pc) pc.textContent='"'+r.text+'"';
-}
-
 // ══════════════════════════════════
 // QUIZ
 // ══════════════════════════════════
-function buildQuiz(){
-  state.quizState={q:0,score:0,answered:false,saved:false};
-  return renderQuizQ();
-}
+function buildQuiz(){state.quizState={q:0,score:0,answered:false};return renderQuizQ();}
 function renderQuizQ(){
-  const isK=state.mode==='kids';
-  const allQs=QUIZ[state.lang]||QUIZ.es;
-  // Filtrar por modo — niños ven preguntas kids, adultos ven las de adultos
-  const qs=allQs.filter(q=>isK?q.kids:!q.kids);
-  if(!qs.length||state.quizState.q>=qs.length) return renderQuizEnd();
+  const qs=QUIZ[state.lang]||QUIZ.es;
+  if(state.quizState.q>=qs.length) return renderQuizEnd();
   const q=qs[state.quizState.q];
-  const progress=Math.round((state.quizState.q/qs.length)*100);
-
-  return `<div class="page-header">
-  <h1>${t('quizTitle')}</h1>
-  <div style="display:flex;align-items:center;gap:10px;margin-top:8px;font-size:13px;color:rgba(245,240,232,0.5)">
-    <span>🔥 ${state.streak}</span>
-    <span>·</span>
-    <span>${t('quizScoreLabel')} ${state.quizState.score}/${state.quizState.q}</span>
-    <span>·</span>
-    <span>${state.quizState.q+1}/${qs.length}</span>
-  </div>
-</div>
+  return `<div class="page-header"><h1>${t('quizTitle')}</h1><p>${t('quizSub')}</p></div>
+<div class="quiz-streak">${ic('star')} ${t('quizStreakLabel')} ${state.streak} · ${t('quizScoreLabel')} ${state.quizState.score}/${state.quizState.q}</div>
 <div class="quiz-card">
-  <div class="quiz-progress-bar"><div class="quiz-progress-fill" style="width:${progress}%;transition:width .4s ease"></div></div>
-  <div class="quiz-q" style="margin-top:16px">${q.q}</div>
+  <div class="quiz-progress-bar"><div class="quiz-progress-fill" style="width:${(state.quizState.q/qs.length)*100}%"></div></div>
+  <div style="font-size:12px;color:rgba(245,240,232,0.35);margin-bottom:20px">${t('quizQuestion')} ${state.quizState.q+1} ${t('quizOf')} ${qs.length}</div>
+  <div class="quiz-q">${q.q}</div>
   <div class="quiz-options" id="qopts">
-    ${q.opts.map((o,i)=>`<div class="quiz-option" id="qo${i}" onclick="answerQuiz(${i})">
-      <div class="quiz-letter">${'ABCD'[i]}</div>
-      <span>${o}</span>
-    </div>`).join('')}
+    ${q.opts.map((o,i)=>`<div class="quiz-option" id="qo${i}" onclick="answerQuiz(${i})"><div class="quiz-letter">${'ABCD'[i]}</div><span>${o}</span></div>`).join('')}
   </div>
   <div id="qfb" style="margin-top:20px;display:none"></div>
 </div>`;
@@ -2659,55 +1841,27 @@ function renderQuizQ(){
 function answerQuiz(idx){
   if(state.quizState.answered) return;
   state.quizState.answered=true;
-  const isK=state.mode==='kids';
-  const qs=(QUIZ[state.lang]||QUIZ.es).filter(q=>isK?q.kids:!q.kids);
+  const qs=QUIZ[state.lang]||QUIZ.es;
   const q=qs[state.quizState.q];
   document.getElementById(`qo${q.correct}`)?.classList.add('correct');
   if(idx!==q.correct) document.getElementById(`qo${idx}`)?.classList.add('wrong');
   else state.quizState.score++;
   const fb=document.getElementById('qfb'); if(!fb) return;
   fb.style.display='block';
-  fb.innerHTML=`<div style="font-size:14px;margin-bottom:10px">${idx===q.correct
-    ?`<span style="color:#7ecfa0;font-weight:500">✅ ${t('quizCorrect')}</span>`
-    :`<span style="color:#f08080">❌ ${t('quizWrong')}</span> <strong style="color:#7ecfa0">${q.opts[q.correct]}</strong>`}
-  </div>
-  ${q.verse&&q.verse!=='—'?`<div style="font-family:var(--font-serif);font-style:italic;font-size:13px;color:rgba(245,240,232,0.5);margin-bottom:14px">📖 ${q.verse}</div>`:''}
+  fb.innerHTML=`<div style="font-size:14px;color:rgba(245,240,232,0.6);margin-bottom:12px">${idx===q.correct?t('quizCorrect'):`${t('quizWrong')} <strong style="color:#7ecfa0">${q.opts[q.correct]}</strong>`}</div>
+  <div style="font-family:var(--font-serif);font-style:italic;font-size:14px;color:rgba(245,240,232,0.5);margin-bottom:14px">${t('quizRef')} ${q.verse}</div>
   <button class="btn btn-gold btn-sm" onclick="nextQuizQ()">${state.quizState.q+1<qs.length?t('quizNext'):t('quizFinish')}</button>`;
 }
-function nextQuizQ(){
-  state.quizState.q++;
-  state.quizState.answered=false;
-  document.getElementById('main-content').innerHTML=renderQuizQ();
-}
+function nextQuizQ(){state.quizState.q++;state.quizState.answered=false;document.getElementById('main-content').innerHTML=renderQuizQ();}
 function renderQuizEnd(){
-  const qs=(QUIZ[state.lang]||QUIZ.es).filter(q=> state.mode==='kids' ? q.kids : !q.kids);
-  const total=qs.length||1;
+  const total=(QUIZ[state.lang]||QUIZ.es).length;
   const pct=Math.round((state.quizState.score/total)*100);
-  const emoji=pct>=90?'🏆':pct>=70?'⭐':pct>=50?'📖':'💪';
-
-  // Guardar en Supabase
-  if(state.user && !state.quizState.saved){
-    state.quizState.saved=true;
-    saveQuizScore(state.quizState.score, total);
-    // Actualizar quiz_avg en perfil
-    const newAvg=Math.round((( state.user.quiz_avg||0)+pct)/2);
-    db.from('profiles').update({quiz_avg:newAvg,updated_at:new Date().toISOString()}).eq('id',state.user.id).then(()=>{
-      state.user.quiz_avg=newAvg;
-    });
-    // Actualizar total_lessons si es la primera vez
-    if(!state.user.total_lessons){
-      db.from('profiles').update({total_lessons:1}).eq('id',state.user.id);
-      state.user.total_lessons=1;
-    }
-  }
-
   return `<div class="page-header"><h1>${t('quizCompleteTitle')}</h1></div>
 <div class="quiz-card" style="text-align:center">
-  <div style="font-size:72px;margin-bottom:20px;animation:fadeIn .5s ease">${emoji}</div>
-  <div style="font-family:var(--font-display);font-size:42px;color:var(--gold);margin-bottom:8px">${state.quizState.score}/${total}</div>
-  <div style="font-size:20px;margin-bottom:8px;color:${pct>=70?'#7ecfa0':'var(--parchment)'}">${pct}%</div>
-  <div style="font-size:14px;color:rgba(245,240,232,0.5);line-height:1.7;margin-bottom:28px">${pct>=80?t('quizCompleteSub1'):t('quizCompleteSub2')}</div>
-  ${pct>=90?`<div style="font-size:13px;color:var(--gold);margin-bottom:20px">🎉 ${state.lang==='es'?'¡Puntaje perfecto! Se guardó en tu perfil.':'Perfect score! Saved to your profile.'}</div>`:''}
+  <div style="font-size:64px;margin-bottom:20px">${pct>=80?'🏆':pct>=60?'⭐':'📖'}</div>
+  <div style="font-family:var(--font-serif);font-size:36px;color:var(--gold);margin-bottom:8px">${state.quizState.score}/${total}</div>
+  <div style="font-size:18px;margin-bottom:24px">${pct}% ${state.lang==='en'?'correct':'correcto'}</div>
+  <div style="font-size:15px;color:rgba(245,240,232,0.5);line-height:1.7;margin-bottom:28px">${pct>=80?t('quizCompleteSub1'):t('quizCompleteSub2')}</div>
   <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
     <button class="btn btn-gold" onclick="navigateApp('quiz')">${t('quizRetry')}</button>
     <button class="btn btn-outline" onclick="navigateApp('chat')">${t('quizAsk')}</button>
@@ -2764,95 +1918,137 @@ function selectFeeling(idx,btn){
 // CHURCHES
 // ══════════════════════════════════
 function buildChurches(){
-  const isEs=state.lang==='es';
+  const isEs = state.lang==='es';
+  setTimeout(()=>{ loadChurchesByGPS(); },100);
   return `<div class="page-header"><h1>${t('churchTitle')}</h1><p>${t('churchSub')}</p></div>
-<div id="church-location-bar" style="background:rgba(245,240,232,0.04);border:1px solid rgba(201,151,58,0.15);border-radius:var(--radius-md);padding:14px 16px;margin-bottom:24px;display:flex;align-items:center;gap:10px">
+
+<div style="background:rgba(245,240,232,0.04);border:1px solid rgba(201,151,58,0.15);border-radius:var(--radius-md);padding:14px 16px;margin-bottom:24px;display:flex;align-items:center;gap:10px">
   <span>📍</span>
-  <span id="church-loc-text" style="font-size:14px;color:rgba(245,240,232,0.5)">${isEs?'Obteniendo ubicación...':'Getting location...'}</span>
-  <button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="loadChurchesByGPS()">${isEs?'🔄 Actualizar':'🔄 Refresh'}</button>
+  <span id="ch-loc" style="font-size:14px;color:rgba(245,240,232,0.5)">${isEs?'Detectando ubicación...':'Detecting location...'}</span>
+  <button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="loadChurchesByGPS()">🔄</button>
 </div>
-<div id="church-list-container">
-  <div style="text-align:center;padding:40px;color:rgba(245,240,232,0.3)">
-    <div style="font-size:32px;margin-bottom:12px">⛪</div>
-    <div>${isEs?'Buscando iglesias cerca de ti...':'Finding churches near you...'}</div>
+
+<div id="ch-list" style="margin-bottom:28px">
+  <div style="text-align:center;padding:32px;color:rgba(245,240,232,0.3)">
+    <div style="font-size:32px;margin-bottom:8px">⛪</div>
+    <div>${isEs?'Buscando iglesias...':'Searching churches...'}</div>
   </div>
 </div>
-<div class="card" style="margin-top:24px;text-align:center;padding:28px">
-  <div style="font-size:22px;margin-bottom:10px">⛪</div>
-  <div style="font-weight:500;margin-bottom:8px">${t('churchRegisterTitle')}</div>
-  <div style="font-size:13px;color:rgba(245,240,232,0.45);margin-bottom:16px">${t('churchRegisterSub')}</div>
-  <button class="btn btn-outline btn-sm" onclick="navigateApp('contact')">${t('churchRegisterBtn')}</button>
+
+<div class="card" style="padding:28px">
+  <div style="font-size:13px;font-weight:500;color:var(--gold);margin-bottom:4px;letter-spacing:.05em;text-transform:uppercase">${isEs?'Registrar mi iglesia':'Register my church'}</div>
+  <div style="font-size:13px;color:rgba(245,240,232,0.45);margin-bottom:20px">${isEs?'¿Eres pastor o líder? Regístrala y llega a más familias. La validamos antes de publicarla.':'Are you a pastor or leader? Register it and reach more families. We validate before publishing.'}</div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+    <div class="input-wrap"><label class="input-label">${isEs?'Nombre de la iglesia':'Church name'} *</label><input class="input" id="ch-name" placeholder="${isEs?'Primera Iglesia Bautista...':'First Baptist Church...'}"></div>
+    <div class="input-wrap"><label class="input-label">${isEs?'Denominación':'Denomination'}</label><input class="input" id="ch-denom" placeholder="${isEs?'Bautista, Pentecostal...':'Baptist, Pentecostal...'}"></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+    <div class="input-wrap"><label class="input-label">${isEs?'Ciudad':'City'} *</label><input class="input" id="ch-city" placeholder="${isEs?'Torreón':'Torreón'}"></div>
+    <div class="input-wrap"><label class="input-label">${isEs?'País':'Country'} *</label><input class="input" id="ch-country" placeholder="${isEs?'México':'Mexico'}" value="${isEs?'México':'Mexico'}"></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+    <div class="input-wrap"><label class="input-label">${isEs?'Nombre del pastor':'Pastor name'}</label><input class="input" id="ch-pastor"></div>
+    <div class="input-wrap"><label class="input-label">${isEs?'Email del pastor':'Pastor email'} *</label><input class="input" id="ch-email" type="email"></div>
+  </div>
+  <div class="input-wrap" style="margin-bottom:16px">
+    <label class="input-label">${isEs?'Dirección':'Address'}</label>
+    <input class="input" id="ch-addr" placeholder="${isEs?'Av. Morelos 1234, Centro':'123 Main St, Downtown'}">
+  </div>
+  <div class="input-wrap" style="margin-bottom:20px">
+    <label class="input-label">${isEs?'Teléfono':'Phone'}</label>
+    <input class="input" id="ch-phone" placeholder="+52 871 000-0000">
+  </div>
+  <button class="btn btn-gold" onclick="submitChurchRegister()" id="ch-submit-btn">
+    ${isEs?'Enviar para validación':'Submit for validation'}
+  </button>
+  <div id="ch-submit-ok" style="display:none;margin-top:12px;color:#7ecfa0;font-size:13px">
+    ✓ ${isEs?'¡Enviado! Revisaremos tu iglesia en 48 horas.':'Sent! We will review your church within 48 hours.'}
+  </div>
 </div>`;
 }
 
 function loadChurchesByGPS(){
-  const isEs=state.lang==='es';
-  const locText=document.getElementById('church-loc-text');
-  const container=document.getElementById('church-list-container');
-  if(locText) locText.textContent=isEs?'Obteniendo ubicación GPS...':'Getting GPS location...';
+  const locEl = document.getElementById('ch-loc');
+  const listEl = document.getElementById('ch-list');
+  if(!locEl||!listEl) return;
 
   if(!navigator.geolocation){
-    renderChurchesFallback(isEs);
+    if(locEl) locEl.textContent = state.lang==='es'?'GPS no disponible':'GPS not available';
+    renderChurchFallback(listEl);
     return;
   }
-
-  navigator.geolocation.getCurrentPosition(
-    pos=>{
-      const {latitude:lat,longitude:lng}=pos.coords;
-      if(locText) locText.innerHTML=`${isEs?'Cerca de':'Near'} <strong style="color:var(--parchment)">${lat.toFixed(3)}, ${lng.toFixed(3)}</strong>`;
-      // Buscar en Google Maps con el link real
-      const mapsUrl=`https://www.google.com/maps/search/iglesia+cristiana/@${lat},${lng},13z`;
-      if(container) container.innerHTML=`
-        <div style="margin-bottom:16px">
-          ${renderChurchCards(isEs)}
-        </div>
-        <a href="${mapsUrl}" target="_blank" rel="noopener" class="btn btn-outline" style="display:flex;align-items:center;gap:8px;justify-content:center;text-decoration:none">
-          🗺️ ${isEs?'Ver más en Google Maps':'See more on Google Maps'}
-        </a>`;
-    },
-    err=>{
-      if(locText) locText.textContent=isEs?'No se pudo obtener ubicación':'Could not get location';
-      renderChurchesFallback(isEs);
-    },
-    {timeout:8000}
-  );
+  navigator.geolocation.getCurrentPosition(pos=>{
+    const {latitude:lat,longitude:lng} = pos.coords;
+    if(locEl) locEl.innerHTML = `<strong style="color:var(--parchment)">${lat.toFixed(4)}, ${lng.toFixed(4)}</strong> — <a href="https://www.google.com/maps/search/iglesias+cristianas/@${lat},${lng},13z" target="_blank" rel="noopener" style="color:var(--gold)">${state.lang==='es'?'Ver en Google Maps':'View on Google Maps'}</a>`;
+    // Intentar cargar desde Supabase (iglesias aprobadas)
+    db.from('church_registrations').select('*').eq('status','approved')
+      .limit(20)
+      .then(({data})=>{
+        if(data?.length) renderChurchList(listEl, data);
+        else renderChurchFallback(listEl);
+      }).catch(()=>renderChurchFallback(listEl));
+  }, ()=>{
+    if(locEl) locEl.textContent = state.lang==='es'?'Sin permiso de ubicación':'Location permission denied';
+    renderChurchFallback(listEl);
+  },{timeout:6000});
 }
 
-function renderChurchCards(isEs){
-  // Directorio base — se actualiza cuando registran iglesias en Supabase
-  const churches=[
-    {name:'Primera Iglesia Bautista de Torreón',addr:isEs?'Av. Morelos 1234, Centro':'Av. Morelos 1234, Centro',phone:'+52 871 712-3456',type:'Bautista',dist:'0.8 km'},
-    {name:'Iglesia Centro Cristiano Vida',addr:isEs?'Blvd. Independencia 567':'Blvd. Independencia 567',phone:'+52 871 723-4567',type:'Pentecostal',dist:'1.2 km'},
-    {name:'Comunidad Remanente',addr:isEs?'Col. Los Ángeles 890':'Col. Los Ángeles 890',phone:'+52 871 734-5678',type:isEs?'No denominacional':'Non-denominational',dist:'1.8 km'},
-    {name:'Iglesia Adventista Torreón',addr:isEs?'Calle Lerdo 234':'Calle Lerdo 234',phone:'+52 871 745-6789',type:'Adventista',dist:'2.1 km'},
-  ];
-  return `<div class="church-list">${churches.map(c=>`
+function renderChurchList(el, churches){
+  el.innerHTML = `<div class="church-list">${churches.map(c=>`
     <div class="church-item">
       <div style="flex:1">
-        <div class="church-name">${c.name}</div>
-        <div class="church-detail">${c.addr} · <span class="badge badge-blue" style="font-size:10px">${c.type}</span></div>
-        <div style="font-size:11px;color:rgba(245,240,232,0.35);margin-top:3px">📍 ${c.dist}</div>
+        <div class="church-name">${esc(c.name)}</div>
+        <div class="church-detail">${esc(c.address||'')} ${esc(c.city||'')} · <span class="badge badge-blue" style="font-size:10px">${esc(c.denomination||'Cristiana')}</span></div>
+        ${c.phone?`<div style="font-size:12px;color:var(--gold);margin-top:2px">${esc(c.phone)}</div>`:''}
       </div>
-      <div style="text-align:right;flex-shrink:0">
-        <div class="church-phone">${c.phone}</div>
-        <a href="https://www.google.com/maps/search/${encodeURIComponent(c.name)}" target="_blank" rel="noopener" 
-           class="btn btn-ghost btn-sm" style="margin-top:6px;text-decoration:none;display:inline-flex">${t('churchMap')}</a>
-      </div>
+      <a href="https://www.google.com/maps/search/${encodeURIComponent(c.name+' '+c.city)}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm" style="text-decoration:none">${t('churchMap')}</a>
     </div>`).join('')}
   </div>`;
 }
 
-function renderChurchesFallback(isEs){
-  const container=document.getElementById('church-list-container');
-  const locText=document.getElementById('church-loc-text');
-  if(locText) locText.textContent=isEs?'Torreón, Coahuila (por defecto)':'Torreón, Coahuila (default)';
-  if(container) container.innerHTML=renderChurchCards(isEs);
+function renderChurchFallback(el){
+  // Lista base de ejemplo — se reemplaza con las de Supabase cuando haya
+  const isEs = state.lang==='es';
+  const sample = [
+    {name:'Primera Iglesia Bautista de Torreón',address:'Av. Morelos 1234, Centro',city:'Torreón',denomination:'Bautista',phone:'+52 871 712-3456'},
+    {name:'Iglesia Centro Cristiano Vida',address:'Blvd. Independencia 567',city:'Torreón',denomination:'Pentecostal',phone:'+52 871 723-4567'},
+    {name:'Comunidad Remanente',address:'Col. Los Ángeles 890',city:'Torreón',denomination:isEs?'No denominacional':'Non-denominational',phone:'+52 871 734-5678'},
+  ];
+  renderChurchList(el, sample);
 }
 
-// Auto-cargar al abrir la página
-setTimeout(()=>{
-  if(document.getElementById('church-list-container')) loadChurchesByGPS();
-},100);
+async function submitChurchRegister(){
+  const name     = document.getElementById('ch-name')?.value.trim();
+  const city     = document.getElementById('ch-city')?.value.trim();
+  const country  = document.getElementById('ch-country')?.value.trim();
+  const email    = document.getElementById('ch-email')?.value.trim();
+  const pastor   = document.getElementById('ch-pastor')?.value.trim();
+  const addr     = document.getElementById('ch-addr')?.value.trim();
+  const phone    = document.getElementById('ch-phone')?.value.trim();
+  const denom    = document.getElementById('ch-denom')?.value.trim();
+  const isEs     = state.lang==='es';
+
+  if(!name||!city||!country||!email){
+    showToast(isEs?'Nombre, ciudad, país y email son requeridos':'Name, city, country and email are required');
+    return;
+  }
+  const btn = document.getElementById('ch-submit-btn');
+  if(btn){ btn.disabled=true; btn.textContent='...'; }
+
+  try {
+    await fetch(`${CF}/church-register`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ name,city,country,address:addr,phone,pastor_name:pastor,pastor_email:email,denomination:denom,user_id:state.user?.id })
+    });
+    document.getElementById('ch-submit-ok').style.display='block';
+    if(btn) btn.style.display='none';
+    showToast(isEs?'¡Iglesia enviada para revisión!':'Church submitted for review!');
+  } catch {
+    if(btn){ btn.disabled=false; btn.textContent=isEs?'Enviar para validación':'Submit for validation'; }
+    showToast(isEs?'Error al enviar, intenta de nuevo':'Error sending, please try again');
+  }
+}
 
 // ══════════════════════════════════
 // CRISIS MODAL
@@ -2874,78 +2070,73 @@ function buildCrisisModal(){
 function buildToastEl(){return `<div class="toast" id="toast"></div>`;}
 
 // ══════════════════════════════════
-// AUTH HANDLERS (Supabase real)
+// AUTH HANDLERS
 // ══════════════════════════════════
 async function handleAuth(type){
   const email = document.getElementById(`ae-${type}`)?.value.trim();
   const pass  = document.getElementById(`ap-${type}`)?.value.trim();
   const err   = document.getElementById(`ae-err-${type}`);
   const btn   = document.getElementById(`ab-${type}`);
-  if(!email || !pass || pass.length < 6){
-    if(err){ err.style.display='block'; err.textContent=t('authLoginError'); } return;
+  if(!email||!pass||pass.length<6){
+    if(err){err.style.display='block';err.textContent=t('authLoginError');} return;
   }
-  if(btn){ btn.disabled=true; btn.textContent='...'; }
-  try {
-    if(type === 'login'){
-      await supaLogin(email, pass);
-      const uid = (await db.auth.getUser()).data.user.id;
-      const profile = await loadProfile(uid);
-      state.user = {
-        id:    uid,
-        email,
-        name:  profile?.full_name || email.split('@')[0],
-        plan:  profile?.plan || 'free',
-        streak: profile?.streak || 0,
-        account_type: profile?.account_type || 'adult',
-        coins: profile?.coins || 0,
+  if(btn){btn.disabled=true;btn.textContent='...';}
+  try{
+    if(type==='login'){
+      const {data,error} = await db.auth.signInWithPassword({email,password:pass});
+      if(error) throw error;
+      const profile = await loadProfile(data.user.id);
+      state.user={
+        id:data.user.id, email,
+        name:profile?.full_name||email.split('@')[0],
+        plan:profile?.plan||'free',
+        streak:profile?.streak||0,
+        account_type:profile?.account_type||'adult',
+        coins:profile?.coins||0,
+        extra_msgs:profile?.extra_msgs||0,
+        joined_at:profile?.created_at||new Date().toISOString(),
+        quiz_avg:profile?.quiz_avg||0,
       };
       state.streak = state.user.streak;
-      await loadMsgCount(uid);
+      state.lang   = profile?.lang||state.lang;
+      await countMsgsThisMonth(data.user.id);
       navigate('app'); navigateApp('home');
     } else {
-      const name        = document.getElementById('an-inp')?.value.trim();
-      const accountType = document.getElementById('atype')?.value || 'adult';
-      if(!name){ if(err){ err.style.display='block'; err.textContent=t('authLoginError'); } return; }
-      await supaSignUp(email, pass, name, accountType);
-      showToast(t('authSignupSuccess') + ' — ' + (state.lang==='en'?'Check your email!':'¡Revisa tu email!'));
-      // auto-login after signup
-      try {
-        await supaLogin(email, pass);
-        const uid = (await db.auth.getUser()).data.user.id;
-        await loadProfile(uid);
-        state.user = { id: uid, email, name, plan:'free', streak:0, account_type: accountType, coins:0 };
-        state.msgThisMonth = 0;
-        // Email de bienvenida via Worker → Resend (no-blocking)
-        if(CF_WORKER_URL){
-          fetch(`${CF_WORKER_URL}/welcome`, {
-            method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ email, name, lang: state.lang, plan:'free' })
-          }).catch(()=>{});
-        }
-        navigate('app'); navigateApp('home');
-      } catch { navigate('login'); }
+      const name = document.getElementById('an-inp')?.value.trim();
+      const accountType = document.getElementById('atype')?.value||'adult';
+      if(!name){if(err){err.style.display='block';err.textContent=t('authLoginError');} return;}
+      const {data,error} = await db.auth.signUp({
+        email,password:pass,
+        options:{data:{full_name:name,account_type:accountType,lang:state.lang}}
+      });
+      if(error) throw error;
+      // Crear perfil en Supabase
+      await db.from('profiles').upsert({
+        id:data.user.id, email, full_name:name,
+        plan:'free', streak:0, coins:0, extra_msgs:0,
+        account_type:accountType, lang:state.lang,
+        created_at:new Date().toISOString()
+      },{onConflict:'id'});
+      state.user={id:data.user.id,email,name,plan:'free',streak:0,account_type:accountType,coins:0,extra_msgs:0,joined_at:new Date().toISOString(),quiz_avg:0};
+      state.msgThisMonth=0;
+      // Email bienvenida (no bloqueante)
+      fetch(`${CF}/welcome`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,name,lang:state.lang})}).catch(()=>{});
+      showToast(t('authSignupSuccess'));
+      navigate('app'); navigateApp('home');
     }
-  } catch(e){
-    if(err){
-      err.style.display='block';
-      err.textContent = e.message || t('authLoginError');
-    }
-  } finally {
-    if(btn){ btn.disabled=false; btn.textContent=type==='login'?t('authLoginBtn'):t('authSignupBtn'); }
+  }catch(e){
+    if(err){err.style.display='block';err.textContent=e.message||t('authLoginError');}
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent=type==='login'?t('authLoginBtn'):t('authSignupBtn');}
   }
 }
-
-async function signOut(){
-  await supaLogout();
-  state.chatHistory=[];
+function signOut(){
+  db.auth.signOut().catch(()=>{});
+  state.user=null;state.supaSession=null;state.chatHistory=[];state.streak=0;
   navigate('landing');
 }
-
-function enterMode(m){
-  state.mode=m;
-  document.body.classList.toggle('kids-mode',m==='kids');
-  if(!state.user){ navigate('login'); } else { navigate('app'); navigateApp('home'); }
-}
+function signOut(){state.user=null;state.chatHistory=[];navigate('landing');}
+function enterMode(m){state.mode=m;document.body.classList.toggle('kids-mode',m==='kids');if(!state.user){navigate('login');}else{navigate('app');navigateApp('home');}}
 
 // ══════════════════════════════════
 // TOGGLES
@@ -3008,225 +2199,11 @@ function rebuildUI(){
 }
 
 // ══════════════════════════════════
-// TIENDA — Luces de Fe
+// CHECKOUT
 // ══════════════════════════════════
-function buildStore(){
-  const isK = state.mode==='kids';
-  const items = (STORE_ITEMS[state.lang]||STORE_ITEMS.es);
-  const coinBalance = state.user?.coins || 0;
-  const categories = isK
-    ? ['quiz','chat','streak','recharge','recarga']
-    : ['racha','streak','bonus','quiz','chat','lecciones','recharge','recarga'];
-  const catLabels = {
-    racha:'⚔️ Protege tu Racha', streak:'⚔️ Protect Streak',
-    bonus:'⚡ Bonos de XP', lecciones:'📚 Lecciones',
-    quiz:'🎯 Quiz Power', chat:'💬 Mensajes IA',
-    recarga:'✨ Recargar Luces', recharge:'✨ Recharge Lights'
-  };
-  const grouped = {};
-  items.forEach(item=>{
-    if(!grouped[item.category]) grouped[item.category]=[];
-    grouped[item.category].push(item);
-  });
-
-  return `
-<div class="page-header">
-  <h1>${t('storeTitle')} ✨</h1>
-  <p>${t('storeSub')}</p>
-</div>
-
-<!-- Saldo actual -->
-<div style="background:linear-gradient(135deg,rgba(201,151,58,0.2),rgba(232,201,122,0.1));border:1px solid rgba(201,151,58,0.4);border-radius:16px;padding:20px 24px;margin-bottom:28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
-  <div style="display:flex;align-items:center;gap:14px">
-    <span style="font-size:36px">✨</span>
-    <div>
-      <div style="font-size:13px;color:rgba(245,240,232,0.5);margin-bottom:2px">${t('storeBalance')}</div>
-      <div style="font-family:var(--font-display);font-size:28px;color:var(--gold)">${coinBalance} <span style="font-size:14px;font-family:var(--font-body);color:rgba(245,240,232,0.6)">${t('storeCoinName')}</span></div>
-    </div>
-  </div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap">
-    ${items.filter(i=>i.isCoinPack).map(i=>`
-      <button class="btn btn-gold btn-sm" onclick="buyItem('${i.id}')">
-        ${i.icon} ${i.amount} — $${i.price} MXN
-      </button>`).join('')}
-  </div>
-</div>
-
-<!-- Limitaciones del plan free -->
-${(state.user?.plan||'free')==='free'?`
-<div style="background:rgba(139,26,26,0.12);border:1px solid rgba(139,26,26,0.25);border-radius:12px;padding:14px 18px;margin-bottom:24px;display:flex;gap:10px;align-items:center">
-  <span>⚠️</span>
-  <div style="font-size:13px;color:rgba(245,240,232,0.7)">
-    ${state.lang==='es'
-      ?'Estás en el <strong>plan gratuito</strong>. Tienes 15 mensajes IA/mes, 2 lecciones y 5 quizzes. <a onclick="navigate(\'pricing-page\')" style="color:var(--gold);cursor:pointer">Actualiza tu plan →</a>'
-      :'You are on the <strong>free plan</strong>. You have 15 AI messages/month, 2 lessons, 5 quizzes. <a onclick="navigate(\'pricing-page\')" style="color:var(--gold);cursor:pointer">Upgrade →</a>'}
-  </div>
-</div>`:''}
-
-<!-- Items por categoría -->
-${Object.entries(grouped).filter(([cat])=>!['recarga','recharge'].includes(cat)).map(([cat,catItems])=>`
-  <div style="margin-bottom:28px">
-    <div style="font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:rgba(245,240,232,0.35);margin-bottom:14px">${catLabels[cat]||cat}</div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px">
-      ${catItems.map(item=>`
-        <div style="background:rgba(245,240,232,0.04);border:1px solid rgba(245,240,232,0.1);border-radius:14px;padding:18px;transition:var(--transition)" onmouseover="this.style.borderColor='rgba(201,151,58,0.4)'" onmouseout="this.style.borderColor='rgba(245,240,232,0.1)'">
-          <div style="font-size:32px;margin-bottom:10px">${item.icon}</div>
-          <div style="font-weight:500;margin-bottom:4px">${item.name}</div>
-          <div style="font-size:12px;color:rgba(245,240,232,0.45);margin-bottom:4px;line-height:1.5">${item.desc}</div>
-          <div style="font-size:11px;color:rgba(245,240,232,0.3);margin-bottom:14px;font-style:italic">${item.detail}</div>
-          <div style="display:flex;align-items:center;justify-content:space-between">
-            <div style="font-family:var(--font-display);color:var(--gold);font-size:16px">$${item.price} <span style="font-size:10px;font-family:var(--font-body);color:rgba(245,240,232,0.35)">MXN</span></div>
-            <button class="btn btn-gold btn-sm" onclick="buyItem('${item.id}')">
-              ${state.lang==='es'?'Comprar':'Buy'}
-            </button>
-          </div>
-        </div>`).join('')}
-    </div>
-  </div>`).join('')}`;
-}
-
-// ══════════════════════════════════
-// CONTACTO
-// ══════════════════════════════════
-function buildContact(){
-  return `
-<div class="page-header"><h1>${t('contactTitle')}</h1><p>${t('contactSub')}</p></div>
-<div style="max-width:600px">
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
-    <div class="input-wrap"><label class="input-label">${t('contactName')}</label><input class="input" id="cnt-name" type="text" placeholder="${state.lang==='es'?'Tu nombre':'Your name'}"></div>
-    <div class="input-wrap"><label class="input-label">${t('contactEmail')}</label><input class="input" id="cnt-email" type="email" placeholder="${state.lang==='es'?'tu@correo.com':'you@email.com'}"></div>
-  </div>
-  <div class="input-wrap" style="margin-bottom:14px">
-    <label class="input-label">${t('contactType')}</label>
-    <select class="input select" id="cnt-type">
-      <option>${t('contactTypeQ')}</option>
-      <option>${t('contactTypeBug')}</option>
-      <option>${t('contactTypeReport')}</option>
-      <option>${t('contactTypeChurch')}</option>
-    </select>
-  </div>
-  <div class="input-wrap" style="margin-bottom:20px">
-    <label class="input-label">${t('contactMsg')}</label>
-    <textarea class="input" id="cnt-msg" rows="5" placeholder="${state.lang==='es'?'Escribe tu mensaje aquí...':'Write your message here...'}" style="resize:vertical"></textarea>
-  </div>
-  <button class="btn btn-gold" onclick="sendContact()">${t('contactSend')}</button>
-  <div id="cnt-ok" style="display:none;margin-top:12px;color:#7ecfa0;font-size:14px">✓ ${t('contactSent')}</div>
-
-  <div style="margin-top:40px;padding-top:24px;border-top:1px solid rgba(245,240,232,0.08)">
-    <div style="font-size:13px;color:rgba(245,240,232,0.4);line-height:2">
-      📧 ${state.lang==='es'?'Respuesta en 24-48 horas hábiles':'Response within 24-48 business hours'}<br>
-      🔒 ${state.lang==='es'?'Tus datos están protegidos':'Your data is protected'}<br>
-      ✝️ ${state.lang==='es'?'MyFather · Torreón, México':'MyFather · Torreón, Mexico'}
-    </div>
-  </div>
-</div>`;
-}
-
-// ── Config de servicios ──────────────────────────────
-// ⬇️ Cuando tengas la URL del Worker de Cloudflare, ponla aquí:
-
-async function sendContact(){
-  const name  = document.getElementById('cnt-name')?.value.trim();
-  const email = document.getElementById('cnt-email')?.value.trim();
-  const type  = document.getElementById('cnt-type')?.value;
-  const msg   = document.getElementById('cnt-msg')?.value.trim();
-  if(!name||!email||!msg){ showToast(state.lang==='es'?'Completa todos los campos':'Fill all fields'); return; }
-  if(CF_WORKER_URL){
-    try {
-      await fetch(`${CF_WORKER_URL}/contact`, {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ name, email, type, msg, lang: state.lang })
-      });
-    } catch(e){ console.warn('Worker contact error:', e); }
-  }
-  document.getElementById('cnt-ok').style.display='block';
-  showToast(t('contactSent'));
-}
-
-// ══════════════════════════════════
-// RECUPERAR CONTRASEÑA — Supabase envía el email
-// (Supabase usa tu dominio de Resend si lo configuras en Auth → SMTP)
-// ══════════════════════════════════
-async function sendPasswordReset(email){
-  if(!email){ showToast(state.lang==='es'?'Ingresa tu email':'Enter your email'); return; }
-  const redirectTo = window.location.origin + (window.location.pathname || '/') + '?reset=1';
-  const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo });
-  if(error) showToast(error.message);
-  else {
-    showToast(t('forgotPassSent'));
-    setTimeout(()=> document.getElementById('forgot-modal')?.remove(), 1500);
-  }
-}
-
-// ══════════════════════════════════
-// PRIVACIDAD & TÉRMINOS
-// ══════════════════════════════════
-function buildPrivacy(){
-  return `
-<div class="page-header"><h1>${t('privacyTitle')}</h1><p>${state.lang==='es'?'Última actualización: Abril 2025':'Last updated: April 2025'}</p></div>
-<div style="max-width:700px;line-height:1.8;font-size:14px;color:rgba(245,240,232,0.75)">
-  <h3 style="color:var(--gold);font-family:var(--font-serif);font-size:18px;margin:24px 0 8px">
-    ${state.lang==='es'?'1. Información que recopilamos':'1. Information We Collect'}
-  </h3>
-  <p>${state.lang==='es'
-    ?'Recopilamos: nombre, email y contraseña al registrarte; progreso de lecciones y quizzes; historial de conversaciones con el Tutor IA (anonimizado); y datos de uso general de la aplicación.'
-    :'We collect: name, email and password when you register; lesson and quiz progress; conversation history with the AI Tutor (anonymized); and general app usage data.'}</p>
-  <h3 style="color:var(--gold);font-family:var(--font-serif);font-size:18px;margin:24px 0 8px">
-    ${state.lang==='es'?'2. Uso de datos':'2. How We Use Data'}
-  </h3>
-  <p>${state.lang==='es'
-    ?'Usamos tus datos para personalizar tu experiencia, enviarte recordatorios de lectura (si los activas), detectar situaciones de crisis para conectarte con ayuda profesional, y mejorar el servicio. Nunca vendemos tus datos.'
-    :"We use your data to personalize your experience, send reading reminders (if enabled), detect crisis situations to connect you with professional help, and improve the service. We never sell your data."}</p>
-  <h3 style="color:var(--gold);font-family:var(--font-serif);font-size:18px;margin:24px 0 8px">
-    ${state.lang==='es'?'3. Seguridad':'3. Security'}
-  </h3>
-  <p>${state.lang==='es'
-    ?'Tus datos se almacenan en Supabase con cifrado SSL. Las contraseñas nunca se almacenan en texto plano. Usamos Row Level Security para que solo tú puedas ver tus datos.'
-    :'Your data is stored in Supabase with SSL encryption. Passwords are never stored in plain text. We use Row Level Security so only you can see your data.'}</p>
-  <h3 style="color:var(--gold);font-family:var(--font-serif);font-size:18px;margin:24px 0 8px">
-    ${state.lang==='es'?'4. Protección de menores':'4. Child Protection'}
-  </h3>
-  <p>${state.lang==='es'
-    ?'El modo niños requiere registro parental. Los chats en modo niños son monitoreados por IA para detectar situaciones de peligro. Las alertas de crisis se registran de forma anonimizada para revisión del administrador.'
-    :"Kids mode requires parental registration. Kids mode chats are monitored by AI to detect dangerous situations. Crisis alerts are logged anonymously for administrator review."}</p>
-  <h3 style="color:var(--gold);font-family:var(--font-serif);font-size:18px;margin:24px 0 8px">
-    ${state.lang==='es'?'5. Contacto':'5. Contact'}
-  </h3>
-  <p>${state.lang==='es'
-    ?'Para ejercer tus derechos ARCO (Acceso, Rectificación, Cancelación u Oposición) escríbenos a través del formulario de contacto.'
-    :'To exercise your rights (Access, Rectification, Erasure or Objection) write to us through the contact form.'}</p>
-</div>`;
-}
-
-function buildTerms(){
-  return `
-<div class="page-header"><h1>${t('termsTitle')}</h1><p>${state.lang==='es'?'Última actualización: Abril 2025':'Last updated: April 2025'}</p></div>
-<div style="max-width:700px;line-height:1.8;font-size:14px;color:rgba(245,240,232,0.75)">
-  <h3 style="color:var(--gold);font-family:var(--font-serif);font-size:18px;margin:24px 0 8px">
-    ${state.lang==='es'?'1. Uso del servicio':'1. Use of Service'}
-  </h3>
-  <p>${state.lang==='es'
-    ?'MyFather es una plataforma educativa de contenido bíblico y cristiano. No reemplaza la guía de un pastor, consejero espiritual o profesional de salud mental. El Tutor IA puede cometer errores teológicos — siempre consulta fuentes primarias.'
-    :'MyFather is an educational platform for biblical and Christian content. It does not replace the guidance of a pastor, spiritual counselor or mental health professional. The AI Tutor can make theological errors — always consult primary sources.'}</p>
-  <h3 style="color:var(--gold);font-family:var(--font-serif);font-size:18px;margin:24px 0 8px">
-    ${state.lang==='es'?'2. Suscripciones y pagos':'2. Subscriptions & Payments'}
-  </h3>
-  <p>${state.lang==='es'
-    ?'Los planes se cobran mensual o anualmente mediante MercadoPago. Puedes cancelar en cualquier momento. No se otorgan reembolsos por períodos parciales. Las Luces de Fe compradas no son reembolsables.'
-    :'Plans are billed monthly or annually via MercadoPago. You can cancel at any time. No refunds for partial periods. Purchased Faith Lights are non-refundable.'}</p>
-  <h3 style="color:var(--gold);font-family:var(--font-serif);font-size:18px;margin:24px 0 8px">
-    ${state.lang==='es'?'3. Limitaciones de responsabilidad':'3. Limitation of Liability'}
-  </h3>
-  <p>${state.lang==='es'
-    ?'MyFather no se responsabiliza por decisiones tomadas basándose únicamente en respuestas del Tutor IA. El servicio se provee "tal como está" sin garantías de disponibilidad continua.'
-    :'MyFather is not responsible for decisions made based solely on AI Tutor responses. The service is provided "as is" without guarantees of continuous availability.'}</p>
-  <h3 style="color:var(--gold);font-family:var(--font-serif);font-size:18px;margin:24px 0 8px">
-    ${state.lang==='es'?'4. Ley aplicable':'4. Governing Law'}
-  </h3>
-  <p>${state.lang==='es'
-    ?'Estos términos se rigen por las leyes de los Estados Unidos Mexicanos. Jurisdicción: Torreón, Coahuila, México.'
-    :'These terms are governed by the laws of the United Mexican States. Jurisdiction: Torreón, Coahuila, México.'}</p>
-</div>`;
+function handleCheckout(plan){
+  if(!state.user&&plan!=='free'){navigate('signup');return;}
+  showToast(t('toastCheckout'));
 }
 
 // ══════════════════════════════════
@@ -3240,24 +2217,6 @@ function showToast(msg){
   clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('show'),3200);
 }
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');}
-function showForgotPass(){
-  const email = document.getElementById('ae-login')?.value.trim()||'';
-  const box = document.createElement('div');
-  box.id = 'forgot-modal';
-  box.style.cssText = 'position:fixed;inset:0;background:rgba(26,20,16,0.85);z-index:2000;display:flex;align-items:center;justify-content:center;padding:20px';
-  box.innerHTML=`<div style="background:#1e1810;border:1px solid rgba(201,151,58,0.3);border-radius:20px;padding:36px;max-width:380px;width:100%">
-    <div style="font-family:var(--font-display);font-size:20px;color:var(--gold);margin-bottom:8px">✉️ ${t('forgotPassTitle')}</div>
-    <div style="font-size:13px;color:rgba(245,240,232,0.45);margin-bottom:20px">${t('forgotPassSub')}</div>
-    <input class="input" id="fp-email" type="email" value="${email}" placeholder="tu@correo.com" style="margin-bottom:14px">
-    <div style="display:flex;gap:10px">
-      <button class="btn btn-gold" style="flex:1;justify-content:center" onclick="sendPasswordReset(document.getElementById('fp-email').value.trim())">${t('forgotPassBtn')}</button>
-      <button class="btn btn-ghost" onclick="document.getElementById('forgot-modal').remove()">✕</button>
-    </div>
-  </div>`;
-  document.body.appendChild(box);
-  box.addEventListener('click', e=>{ if(e.target===box) box.remove(); });
-}
-
 function attachGlobalEvents(){
   document.getElementById('crisis-modal')?.addEventListener('click',function(e){if(e.target===this)hideCrisis();});
   document.addEventListener('keydown',e=>{if(e.key==='Escape')hideCrisis();});
@@ -3266,7 +2225,7 @@ function attachGlobalEvents(){
 // ══════════════════════════════════
 // INIT
 // ══════════════════════════════════
-initSupabase(); // carga sesión de Supabase y luego llama buildApp()
+buildApp();
 
   </script>
 </body>
