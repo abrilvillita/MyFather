@@ -2144,7 +2144,20 @@ async function handleAuth(type){
       navigate('app'); navigateApp('home');
     }
   }catch(e){
-    if(err){err.style.display='block';err.textContent=e.message||t('authLoginError');}
+    const isEs = state.lang==='es';
+    let msg = e?.message || '';
+    // Traducir errores comunes de Supabase
+    if(msg.includes('already registered') || msg.includes('already been registered'))
+      msg = isEs ? 'Este email ya tiene una cuenta. Inicia sesión.' : 'This email already has an account. Sign in.';
+    else if(msg.includes('Invalid login') || msg.includes('invalid_credentials') || msg.includes('Invalid credentials'))
+      msg = isEs ? 'Email o contraseña incorrectos.' : 'Incorrect email or password.';
+    else if(msg.includes('Email not confirmed'))
+      msg = isEs ? 'Confirma tu email antes de iniciar sesión.' : 'Please confirm your email before signing in.';
+    else if(msg.includes('Password should be'))
+      msg = isEs ? 'La contraseña debe tener al menos 6 caracteres.' : 'Password must be at least 6 characters.';
+    else if(!msg)
+      msg = t('authLoginError');
+    if(err){ err.style.display='block'; err.textContent=msg; }
   }finally{
     if(btn){btn.disabled=false;btn.textContent=type==='login'?t('authLoginBtn'):t('authSignupBtn');}
   }
