@@ -2092,14 +2092,20 @@ function buildToastEl(){return `<div class="toast" id="toast"></div>`;}
 // AUTH HANDLERS
 // ══════════════════════════════════
 async function handleAuth(type){
-  const email = document.getElementById(`ae-${type}`)?.value.trim();
-  const pass  = document.getElementById(`ap-${type}`)?.value.trim();
+  // Leer inputs de la página activa
+  const page = document.getElementById(`page-${type}`);
+  const emailEl = page?.querySelector('input[type="email"]') || document.getElementById(`ae-${type}`);
+  const passEl  = page?.querySelector('input[type="password"]') || document.getElementById(`ap-${type}`);
+  const email = emailEl?.value?.trim() || '';
+  const pass  = passEl?.value || '';
   const err   = document.getElementById(`ae-err-${type}`);
   const btn   = document.getElementById(`ab-${type}`);
-  if(!email||!pass||pass.length<6){
-    if(err){err.style.display='block';err.textContent=t('authLoginError');} return;
+
+  // Validación básica
+  if(!email || !pass){
+    if(err){err.style.display='block'; err.textContent=state.lang==='es'?'Completa todos los campos.':'Fill in all fields.';} return;
   }
-  if(btn){btn.disabled=true;btn.textContent='...';}
+  if(btn){btn.disabled=true; btn.textContent='...';}
   try{
     if(type==='login'){
       const {data,error} = await db.auth.signInWithPassword({email,password:pass});
