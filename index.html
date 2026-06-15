@@ -920,6 +920,13 @@ async function initSupabase(){
   }
   loadContentFromDB(); // paralelo, no bloquea
   buildApp();
+  // Navegar según si hay sesión activa o no
+  if(state.user){
+    navigate('app');
+    navigateApp('home');
+  } else {
+    navigate('landing');
+  }
 }
 
 db.auth.onAuthStateChange((ev,session)=>{
@@ -1266,7 +1273,7 @@ function buildApp(){
   document.getElementById('app').innerHTML=
     buildCrisisModal()+buildToastEl()+buildLanding()+buildAuth('login')+buildAuth('signup')+buildAppShell()+buildPricingPage();
   attachGlobalEvents();
-  navigate('landing');
+  // La navegación inicial la maneja initSupabase()
 }
 
 // ══════════════════════════════════
