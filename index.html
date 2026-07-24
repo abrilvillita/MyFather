@@ -827,7 +827,7 @@ body.kids-mode .hero-bg {
 // ═══════════════════════════════════════════════════════
 
 const SUPABASE_URL  = 'https://eumxuuvtixkojkjuzyyo.supabase.co';
-const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV1bXh1dXZ0aXhrb2pranV6eXlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NDQ2NDksImV4cCI6MjA5MDAyMDY0OX0.srYdofHSEBQby4QKpBKeZ0BkSETl2H89UpupeUqYD7Q';
+const SUPABASE_ANON = 'sb_publishable_oJ3vw1YnAbrio787fBDyGg_7PEg3jkO';
 const CF = 'https://myfather-api.mirandavilla341.workers.dev';
 
 // Supabase singleton
@@ -848,8 +848,8 @@ const state = {
   contentCache: { verse:null, quiz:[], devotional:null, reading:null },
 };
 
-// Límites por plan
-const PLAN_LIMITS = { free:5, basic:60, premium:99999, family:99999, church:99999 };
+// Límites por plan (deben coincidir con la tabla plan_limits en Supabase — solo se usan para mostrar un estimado, el límite real lo aplica el servidor)
+const PLAN_LIMITS = { free:15, basic:80, premium:300, family:500, church:1200 };
 function msgLimit(){ return PLAN_LIMITS[state.user?.plan||'free']||5; }
 function msgsLeft(){ 
   const extra = state.user?.extra_msgs||0;
@@ -869,12 +869,12 @@ async function loadProfile(uid){
   return data;
 }
 async function countMsgsThisMonth(uid){
+  // Lee el conteo real que lleva el servidor (tabla ai_usage) — solo cuenta mensajes de Capa 2/3 (los que sí cuestan)
   const start = new Date(); start.setDate(1); start.setHours(0,0,0,0);
   try {
-    const { count } = await db.from('chat_sessions')
-      .select('*',{count:'exact',head:true})
-      .eq('user_id',uid).gte('created_at',start.toISOString());
-    state.msgThisMonth = count||0;
+    const { data } = await db.from('ai_usage').select('msgs_used')
+      .eq('user_id',uid).eq('profile_type','adult').eq('period_start',start.toISOString().slice(0,10)).maybeSingle();
+    state.msgThisMonth = data?.msgs_used||0;
   } catch{ state.msgThisMonth=0; }
 }
 async function loadContentFromDB(){
@@ -1689,8 +1689,11 @@ async function sendChat(){
 
   // Crisis siempre primero
   const cr = detectCrisis(txt);
-  if(cr==='suicide'){ msgs.innerHTML+=crisisMsg(); msgs.scrollTop=msgs.scrollHeight; return; }
-  if(cr==='abuse')  { msgs.innerHTML+=abuseMsg();  msgs.scrollTop=msgs.scrollHeight; return; }
+  if(cr){
+    if(state.user) db.from('crisis_alerts').insert({user_id:state.user.id,alert_type:cr,trigger_text:txt.slice(0,500),lang:state.lang,mode:state.mode,created_at:new Date().toISOString()}).catch(()=>{});
+    if(cr==='suicide'){ msgs.innerHTML+=crisisMsg(); msgs.scrollTop=msgs.scrollHeight; return; }
+    if(cr==='abuse')  { msgs.innerHTML+=abuseMsg();  msgs.scrollTop=msgs.scrollHeight; return; }
+  }
 
   // ── Capa 1: Respuesta preprogramada ──
   const capa1 = getCapa1(txt);
@@ -1704,16 +1707,10 @@ async function sendChat(){
     return;
   }
 
-  // ── Capa 2/3: Verificar límite ──
-  if(!canChat()){
+  // ── Capa 2/3: se necesita sesión (el límite real lo aplica el servidor) ──
+  if(!state.user){
     const isEs = state.lang==='es';
-    msgs.innerHTML += `<div class="message ai"><div class="msg-avatar">✝️</div><div><div class="msg-bubble">
-      ${isEs?`Has usado todos tus mensajes IA de este mes (${msgLimit()}). Puedes comprar más o actualizar tu plan.`:`You've used all your AI messages this month (${msgLimit()}). Buy more or upgrade your plan.`}
-      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-        <button class="btn btn-gold btn-sm" onclick="navigate('pricing-page')">${isEs?'Ver planes →':'See plans →'}</button>
-        <button class="btn btn-outline btn-sm" onclick="navigateApp('store')">${isEs?'Comprar mensajes':'Buy messages'}</button>
-      </div>
-    </div></div></div>`;
+    msgs.innerHTML += `<div class="message ai"><div class="msg-avatar">✝️</div><div><div class="msg-bubble">${isEs?'Inicia sesión para hablar con el Tutor IA.':'Sign in to talk to the AI Tutor.'}</div></div></div>`;
     msgs.scrollTop = msgs.scrollHeight;
     return;
   }
@@ -1733,14 +1730,27 @@ async function sendChat(){
   try{
     const r = await fetch(`${CF}/ai/chat`,{
       method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({layer:deep?3:2,system:sys,messages:[...state.chatHistory.slice(-6),{role:'user',content:txt}],max_tokens:deep?500:180})
+      body:JSON.stringify({layer:deep?3:2,system:sys,messages:[...state.chatHistory.slice(-6),{role:'user',content:txt}],max_tokens:deep?500:180,user_id:state.user.id,profile_type:state.activeChildId?'child':'adult'})
     });
+    if(r.status===429){
+      document.getElementById(lid)?.remove();
+      const isEs = state.lang==='es';
+      msgs.innerHTML += `<div class="message ai"><div class="msg-avatar">✝️</div><div><div class="msg-bubble">
+        ${isEs?'Has usado todos tus mensajes IA de este mes. Puedes comprar más o actualizar tu plan.':"You've used all your AI messages this month. Buy more or upgrade your plan."}
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+          <button class="btn btn-gold btn-sm" onclick="navigate('pricing-page')">${isEs?'Ver planes →':'See plans →'}</button>
+          <button class="btn btn-outline btn-sm" onclick="navigateApp('store')">${isEs?'Comprar mensajes':'Buy messages'}</button>
+        </div>
+      </div></div></div>`;
+      msgs.scrollTop = msgs.scrollHeight;
+      chatBusy=false;
+      return;
+    }
     if(!r.ok) throw new Error(`Worker ${r.status}`);
     const d = await r.json();
     if(d.error) throw new Error(d.error);
     const reply = d.content?.[0]?.text || (state.lang==='en'?'Could not get a response.':'No se pudo obtener respuesta.');
     state.chatHistory.push({role:'user',content:txt},{role:'assistant',content:reply});
-    state.msgThisMonth++;
     renderMsg(reply, lid);
     // Guardar en DB
     if(state.user) db.from('chat_sessions').insert({user_id:state.user.id,mode:state.mode,lang:state.lang,messages:[{role:'user',content:txt},{role:'assistant',content:reply}],created_at:new Date().toISOString()}).catch(()=>{});
