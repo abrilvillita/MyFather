@@ -849,6 +849,8 @@ const state = {
   childProfiles: [],
   activeChildId: null,
   activeChildName: null,
+  lessons: [],
+  lessonProgress: {},
 };
 
 // Límites por plan (deben coincidir con la tabla plan_limits en Supabase — solo se usan para mostrar un estimado, el límite real lo aplica el servidor)
@@ -884,17 +886,38 @@ async function loadContentFromDB(){
   try {
     const day = Math.floor((Date.now()-new Date(new Date().getFullYear(),0,0))/86400000);
     const week = Math.ceil(day/7);
-    const [vRes,qRes,dRes,rRes] = await Promise.all([
+    const [vRes,qRes,dRes,rRes,lRes] = await Promise.all([
       db.from('daily_verses').select('*').eq('day_of_year',day).single(),
       db.from('quiz_questions').select('*').limit(40),
       db.from('devotionals').select('*').eq('week_num',week).single(),
       db.from('reading_plan').select('*').eq('day_num',day).single(),
+      db.from('lessons_content').select('*').order('order_num'),
     ]);
     if(vRes.data) state.contentCache.verse = vRes.data;
     if(qRes.data?.length) state.contentCache.quiz = qRes.data;
     if(dRes.data) state.contentCache.devotional = dRes.data;
     if(rRes.data) state.contentCache.reading = rRes.data;
+    if(lRes.data?.length) state.lessons = lRes.data;
   } catch(e){ console.warn('DB content fallback:', e?.message); }
+}
+
+async function loadLessonProgress(){
+  if(!state.user) return;
+  const { data } = await db.from('lesson_progress').select('lesson_id,progress,completed,created_at').eq('user_id',state.user.id);
+  state.lessonProgress = {};
+  (data||[]).forEach(p=>{ state.lessonProgress[p.lesson_id] = p; });
+}
+
+const LESSON_LIMITS = { free: 3 }; // lecciones nuevas por mes; el resto de planes no tiene límite
+function lessonsStartedThisMonth(){
+  const start = new Date(); start.setDate(1); start.setHours(0,0,0,0);
+  return Object.values(state.lessonProgress||{}).filter(p=>new Date(p.created_at)>=start).length;
+}
+function canStartNewLesson(slug){
+  if(state.lessonProgress?.[slug]) return true; // ya empezada, siempre se puede continuar/repasar
+  const limit = LESSON_LIMITS[state.user?.plan||'free'];
+  if(limit===undefined) return true;
+  return lessonsStartedThisMonth() < limit;
 }
 
 async function hydrateSession(session){
@@ -929,6 +952,7 @@ async function hydrateSession(session){
     document.documentElement.lang = state.lang;
     await countMsgsThisMonth(session.user.id);
     await loadChildProfiles();
+    await loadLessonProgress();
   }
 }
 
@@ -981,7 +1005,7 @@ const T = {
     kidsDesc:'Animaciones, juegos y aventuras bíblicas para pequeños',
     marketUsers:'Potenciales usuarios', marketBooks:'Libros de la Biblia', marketQuestions:'Preguntas respondidas',
     featTitle1:'Tutor IA', featDesc1:'Preguntas bíblicas respondidas en tiempo real, adaptadas a tu nivel',
-    featTitle2:'Lecciones Animadas', featDesc2:'Historias bíblicas narradas con animación — para niños y adultos',
+    featTitle2:'Lecciones Interactivas', featDesc2:'Historias bíblicas paso a paso, con reflexiones — para niños y adultos',
     featTitle3:'Plan de Lectura', featDesc3:'Lee la Biblia completa en 1 año con recordatorios personalizados',
     featTitle4:'Quizzes & Juegos', featDesc4:'Aprende jugando — repaso gamificado de la Escritura',
     featTitle5:'Devocional Diario', featDesc5:'Un versículo y reflexión cada mañana, generado para tu momento',
@@ -1031,7 +1055,7 @@ const T = {
     chatAbuseSub:'Un maestro, familiar cercano, o consejero puede ayudarte.',
     chatSeeAll:'Ver todas las líneas →', chatError:'Error al conectar. Verifica tu conexión.',
     lessonsTitle:'Lecciones', lessonsAdultSub:'Estudios bíblicos profundos — a tu ritmo',
-    lessonsKidsSub:'Historias bíblicas con animación para pequeños exploradores',
+    lessonsKidsSub:'Historias bíblicas paso a paso para pequeños exploradores',
     lessonDone:'✓ Completado', lessonProgress:'En progreso',
     lessonContinue:'Continuar', lessonRepeat:'Repetir', lessonStart:'Comenzar',
     devTitle:'Devocional', devReflectionLabel:'Reflexión:',
@@ -1086,7 +1110,7 @@ const T = {
     kidsDesc:'Animations, games and biblical adventures for children',
     marketUsers:'Potential users', marketBooks:'Books of the Bible', marketQuestions:'Questions answered',
     featTitle1:'AI Tutor', featDesc1:'Biblical questions answered in real time, adapted to your level',
-    featTitle2:'Animated Lessons', featDesc2:'Biblical stories narrated with animation — for kids and adults',
+    featTitle2:'Interactive Lessons', featDesc2:'Step-by-step biblical stories with reflections — for kids and adults',
     featTitle3:'Reading Plan', featDesc3:'Read the entire Bible in 1 year with personalized daily reminders',
     featTitle4:'Quizzes & Games', featDesc4:'Learn by playing — gamified Scripture review',
     featTitle5:'Daily Devotional', featDesc5:'A verse and reflection every morning, generated for your life moment',
@@ -1136,7 +1160,7 @@ const T = {
     chatAbuseSub:'A teacher, close family member, or counselor can help you.',
     chatSeeAll:'See all helplines →', chatError:'Connection error. Please check your connection.',
     lessonsTitle:'Lessons', lessonsAdultSub:'Deep biblical studies — at your own pace',
-    lessonsKidsSub:'Biblical stories with animation for little explorers',
+    lessonsKidsSub:'Step-by-step biblical stories for little explorers',
     lessonDone:'✓ Completed', lessonProgress:'In progress',
     lessonContinue:'Continue', lessonRepeat:'Repeat', lessonStart:'Start',
     devTitle:'Devotional', devReflectionLabel:'Reflection:',
@@ -1197,33 +1221,6 @@ const crisisLines = [
   {country:'USA 🇺🇸', number:'988', name:'Suicide & Crisis Lifeline'},
   {country:'USA español 🇺🇸', number:'1-888-628-9454', name:'National Lifeline (ES)'},
 ];
-
-const LESSONS = {
-  es:[
-    {id:1,title:'Génesis: El principio de todo',emoji:'🌍',duration:'18 min',level:'Básico',progress:100,kids:false},
-    {id:2,title:'El Sermón del Monte',emoji:'⛰️',duration:'24 min',level:'Intermedio',progress:65,kids:false},
-    {id:3,title:'Los Salmos: Oración y adoración',emoji:'🎵',duration:'20 min',level:'Básico',progress:0,kids:false},
-    {id:4,title:'Las Cartas de Pablo',emoji:'📜',duration:'30 min',level:'Avanzado',progress:0,kids:false},
-    {id:5,title:'Proverbios: Sabiduría práctica',emoji:'💡',duration:'22 min',level:'Básico',progress:30,kids:false},
-    {id:6,title:'El Apocalipsis',emoji:'🌟',duration:'35 min',level:'Avanzado',progress:0,kids:false},
-    {id:7,title:'Noé y el Arca',emoji:'🚢',duration:'10 min',level:'Fácil',progress:100,kids:true},
-    {id:8,title:'David y Goliat',emoji:'🗡️',duration:'12 min',level:'Fácil',progress:80,kids:true},
-    {id:9,title:'Jonás y la ballena',emoji:'🐋',duration:'9 min',level:'Fácil',progress:0,kids:true},
-    {id:10,title:'Jesús alimenta a 5,000',emoji:'🍞',duration:'11 min',level:'Fácil',progress:0,kids:true},
-  ],
-  en:[
-    {id:1,title:'Genesis: The Beginning of Everything',emoji:'🌍',duration:'18 min',level:'Basic',progress:100,kids:false},
-    {id:2,title:'The Sermon on the Mount',emoji:'⛰️',duration:'24 min',level:'Intermediate',progress:65,kids:false},
-    {id:3,title:'Psalms: Prayer and Worship',emoji:'🎵',duration:'20 min',level:'Basic',progress:0,kids:false},
-    {id:4,title:"Paul's Letters",emoji:'📜',duration:'30 min',level:'Advanced',progress:0,kids:false},
-    {id:5,title:'Proverbs: Practical Wisdom',emoji:'💡',duration:'22 min',level:'Basic',progress:30,kids:false},
-    {id:6,title:'The Book of Revelation',emoji:'🌟',duration:'35 min',level:'Advanced',progress:0,kids:false},
-    {id:7,title:'Noah and the Ark',emoji:'🚢',duration:'10 min',level:'Easy',progress:100,kids:true},
-    {id:8,title:'David and Goliath',emoji:'🗡️',duration:'12 min',level:'Easy',progress:80,kids:true},
-    {id:9,title:'Jonah and the Whale',emoji:'🐋',duration:'9 min',level:'Easy',progress:0,kids:true},
-    {id:10,title:'Jesus Feeds 5,000',emoji:'🍞',duration:'11 min',level:'Easy',progress:0,kids:true},
-  ]
-};
 
 const QUIZ = {
   es:[
@@ -1816,26 +1813,121 @@ function setChatMode(m){state.mode=m;document.body.classList.toggle('kids-mode',
 // ══════════════════════════════════
 // LESSONS
 // ══════════════════════════════════
+const LEVEL_LABEL = {
+  basic:{es:'Básico',en:'Basic'}, intermediate:{es:'Intermedio',en:'Intermediate'}, advanced:{es:'Avanzado',en:'Advanced'}
+};
+
 function buildLessons(){
-  const isK=state.mode==='kids';
-  const list=(LESSONS[state.lang]||LESSONS.es).filter(l=>l.kids===isK);
+  const isEs = state.lang==='es';
+  const isK = state.mode==='kids';
+  const list = (state.lessons||[]).filter(l=>l.is_kids===isK);
+  if(!list.length){
+    return `<div class="page-header"><h1>${t('lessonsTitle')}</h1><p>${isK?t('lessonsKidsSub'):t('lessonsAdultSub')}</p></div><div class="empty">${isEs?'Cargando lecciones...':'Loading lessons...'}</div>`;
+  }
   return `<div class="page-header"><h1>${t('lessonsTitle')}</h1><p>${isK?t('lessonsKidsSub'):t('lessonsAdultSub')}</p></div>
 <div class="lessons-grid">
-${list.map(l=>`<div class="lesson-card ${isK?'kids-card':''}">
+${list.map(l=>{
+  const prog = state.lessonProgress?.[l.slug];
+  const pct = prog?.completed?100:(prog?.progress||0);
+  const locked = !canStartNewLesson(l.slug);
+  const level = (LEVEL_LABEL[l.level]||{})[state.lang] || l.level;
+  const btnLabel = locked ? (isEs?'🔒 Límite mensual':'🔒 Monthly limit') : pct===100?t('lessonRepeat'):pct>0?t('lessonContinue'):t('lessonStart');
+  return `<div class="lesson-card ${isK?'kids-card':''}">
   <div class="lesson-thumb"><span style="position:relative;z-index:1;font-size:52px">${l.emoji}</span>
-  ${l.progress===100?`<div style="position:absolute;top:10px;right:10px;background:rgba(61,107,79,0.85);color:#7ecfa0;font-size:11px;padding:3px 8px;border-radius:10px">${t('lessonDone')}</div>`:''}
-  ${l.progress>0&&l.progress<100?`<div style="position:absolute;top:10px;right:10px;background:rgba(201,151,58,0.85);color:var(--ink);font-size:11px;padding:3px 8px;border-radius:10px">${t('lessonProgress')}</div>`:''}
+  ${pct===100?`<div style="position:absolute;top:10px;right:10px;background:rgba(61,107,79,0.85);color:#7ecfa0;font-size:11px;padding:3px 8px;border-radius:10px">${t('lessonDone')}</div>`:''}
+  ${pct>0&&pct<100?`<div style="position:absolute;top:10px;right:10px;background:rgba(201,151,58,0.85);color:var(--ink);font-size:11px;padding:3px 8px;border-radius:10px">${t('lessonProgress')}</div>`:''}
   </div>
   <div class="lesson-body">
-    <div class="lesson-title">${l.title}</div>
-    <div class="lesson-meta"><span>⏱ ${l.duration}</span><span>📊 ${l.level}</span></div>
-    <div class="lesson-progress"><div class="lesson-progress-fill" style="width:${l.progress}%"></div></div>
-    <button class="btn btn-gold btn-sm" style="margin-top:14px;width:100%;justify-content:center" onclick="showToast('${t('toastLessonSoon')}')">
-      ${l.progress>0&&l.progress<100?t('lessonContinue'):l.progress===100?t('lessonRepeat'):t('lessonStart')}
+    <div class="lesson-title">${esc(state.lang==='en'?l.title_en:l.title_es)}</div>
+    <div class="lesson-meta"><span>⏱ ${l.duration_min} min</span><span>📊 ${esc(level)}</span></div>
+    <div class="lesson-progress"><div class="lesson-progress-fill" style="width:${pct}%"></div></div>
+    <button class="btn ${locked?'btn-outline':'btn-gold'} btn-sm" style="margin-top:14px;width:100%;justify-content:center" ${locked?`onclick="navigate('pricing-page')"`:`onclick="openLesson('${l.slug}')"`}>
+      ${btnLabel}
     </button>
   </div>
-</div>`).join('')}
+</div>`;}).join('')}
 </div>`;
+}
+
+// ══════════════════════════════════
+// VISOR DE LECCIONES
+// ══════════════════════════════════
+let _lessonState = null;
+
+function openLesson(slug){
+  const l = (state.lessons||[]).find(x=>x.slug===slug);
+  if(!l) return;
+  if(!canStartNewLesson(slug)){ navigate('pricing-page'); return; }
+  const steps = (state.lang==='en'?l.steps_en:l.steps_es)||[];
+  const prevProgress = state.lessonProgress?.[slug];
+  const startStep = prevProgress && !prevProgress.completed ? Math.min(Math.floor((prevProgress.progress/100)*steps.length), steps.length-1) : 0;
+  _lessonState = { slug, steps, idx: startStep };
+  renderLessonView();
+}
+
+function closeLesson(){ document.getElementById('lesson-overlay')?.remove(); _lessonState=null; }
+
+function renderLessonView(){
+  if(!_lessonState) return;
+  const { steps, idx } = _lessonState;
+  const s = steps[idx];
+  const isEs = state.lang==='es';
+  const isLast = idx===steps.length-1;
+  let body = '';
+  if(s.type==='verse'){
+    body = `<div class="msg-verse" style="font-size:17px;padding:20px">${esc(s.text)}<div class="msg-ref">— ${esc(s.ref)}</div></div>`;
+  } else {
+    body = `<h3 style="color:var(--gold);font-family:var(--font-serif);font-size:20px;margin-bottom:10px">${esc(s.title||'')}</h3><p style="line-height:1.8;color:rgba(245,240,232,0.85)">${esc(s.body||'')}</p>`;
+    if(s.question) body += `<div style="margin-top:18px;padding:14px;background:rgba(201,151,58,0.08);border-left:3px solid var(--gold);border-radius:0 8px 8px 0"><strong style="color:var(--gold)">${isEs?'Para reflexionar:':'To reflect:'}</strong><br>${esc(s.question)}</div>`;
+  }
+  let overlay = document.getElementById('lesson-overlay');
+  if(!overlay){
+    overlay = document.createElement('div');
+    overlay.id = 'lesson-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(10,8,6,0.96);z-index:3000;display:flex;align-items:center;justify-content:center;padding:20px';
+    document.body.appendChild(overlay);
+  }
+  overlay.innerHTML = `<div style="max-width:520px;width:100%;background:#1a1410;border:1px solid rgba(201,151,58,0.3);border-radius:20px;padding:32px;max-height:85vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+      <div style="display:flex;gap:5px">${steps.map((_,i)=>`<div style="width:${i===idx?18:6}px;height:6px;border-radius:3px;background:${i<=idx?'var(--gold)':'rgba(245,240,232,0.15)'};transition:.2s"></div>`).join('')}</div>
+      <button class="btn btn-ghost btn-sm" onclick="closeLesson()">✕</button>
+    </div>
+    <div>${body}</div>
+    <div style="display:flex;gap:10px;margin-top:26px">
+      ${idx>0?`<button class="btn btn-outline" onclick="lessonNav(-1)">${isEs?'← Atrás':'← Back'}</button>`:''}
+      <button class="btn btn-gold" style="flex:1;justify-content:center" onclick="lessonNav(1)">${isLast?(isEs?'Terminar ✓':'Finish ✓'):(isEs?'Siguiente →':'Next →')}</button>
+    </div>
+  </div>`;
+}
+
+async function lessonNav(dir){
+  if(!_lessonState) return;
+  const { slug, steps, idx } = _lessonState;
+  if(dir>0 && idx===steps.length-1){
+    await saveLessonProgress(slug, 100, true);
+    showToast(state.lang==='es'?'✅ ¡Lección completada!':'✅ Lesson completed!');
+    closeLesson();
+    if(state.page==='app') navigateApp('lessons');
+    return;
+  }
+  _lessonState.idx = Math.max(0, Math.min(steps.length-1, idx+dir));
+  await saveLessonProgress(slug, Math.round(((_lessonState.idx+1)/steps.length)*100), false);
+  renderLessonView();
+}
+
+async function saveLessonProgress(slug, progress, completed){
+  if(!state.user) return;
+  const existing = state.lessonProgress?.[slug];
+  const payload = { user_id:state.user.id, lesson_id:slug, progress, completed, updated_at:new Date().toISOString() };
+  if(completed) payload.completed_at = new Date().toISOString();
+  try{
+    if(existing){
+      await db.from('lesson_progress').update(payload).eq('user_id',state.user.id).eq('lesson_id',slug);
+    } else {
+      await db.from('lesson_progress').insert(payload);
+    }
+  } catch(e){ console.warn('lesson_progress save failed:', e?.message); }
+  state.lessonProgress[slug] = { ...existing, ...payload, created_at: existing?.created_at||new Date().toISOString() };
 }
 
 // ══════════════════════════════════
