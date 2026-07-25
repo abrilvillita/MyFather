@@ -846,6 +846,9 @@ const state = {
   quizState:   { q:0, score:0, answered:false, saved:false },
   msgThisMonth: 0,
   contentCache: { verse:null, quiz:[], devotional:null, reading:null },
+  childProfiles: [],
+  activeChildId: null,
+  activeChildName: null,
 };
 
 // Límites por plan (deben coincidir con la tabla plan_limits en Supabase — solo se usan para mostrar un estimado, el límite real lo aplica el servidor)
@@ -898,7 +901,17 @@ async function initSupabase(){
   const { data:{session} } = await db.auth.getSession();
   if(session){
     state.supaSession = session;
-    const profile = await loadProfile(session.user.id);
+    let profile = await loadProfile(session.user.id);
+    if(!profile){
+      // Primer login (ej. Google OAuth) — aún no existe fila en profiles
+      const meta = session.user.user_metadata||{};
+      await db.from('profiles').upsert({
+        id: session.user.id,
+        full_name: meta.full_name||meta.name||session.user.email.split('@')[0],
+        account_type: 'adult', lang: state.lang,
+      },{onConflict:'id'});
+      profile = await loadProfile(session.user.id);
+    }
     if(profile){
       state.user = {
         id:           session.user.id,
@@ -911,11 +924,13 @@ async function initSupabase(){
         extra_msgs:   profile.extra_msgs||0,
         joined_at:    profile.created_at,
         quiz_avg:     profile.quiz_avg||0,
+        birthdate:    profile.birthdate||null,
       };
       state.streak = profile.streak||0;
       state.lang   = profile.lang||state.lang;
       document.documentElement.lang = state.lang;
       await countMsgsThisMonth(session.user.id);
+      await loadChildProfiles();
     }
   }
   loadContentFromDB(); // paralelo, no bloquea
@@ -924,6 +939,7 @@ async function initSupabase(){
   if(state.user){
     navigate('app');
     navigateApp('home');
+    if(!state.user.birthdate) showOnboarding();
   } else {
     navigate('landing');
   }
@@ -1347,10 +1363,14 @@ function buildAuth(type){
       ${!isLogin?`<div class="input-wrap"><label class="input-label" id="al-name">${t('authName')}</label><input class="input" id="an-inp" type="text" placeholder="${t('authNamePh')}"></div>`:''}
       <div class="input-wrap"><label class="input-label" id="al-email-${type}">${t('authEmail')}</label><input class="input" id="ae-${type}" type="email" placeholder="${t('authEmailPh')}"></div>
       <div class="input-wrap"><label class="input-label" id="al-pass-${type}">${t('authPass')}</label><input class="input" id="ap-${type}" type="password" placeholder="${t('authPassPh')}"></div>
-      ${!isLogin?`<div class="input-wrap"><label class="input-label" id="al-type">${t('authAccountType')}</label><select class="select input" id="atype"><option id="at1">${t('authTypeAdult')}</option><option id="at2">${t('authTypeKids')}</option><option id="at3">${t('authTypeFamily')}</option><option id="at4">${t('authTypeChurch')}</option></select></div>`:''}
+      ${!isLogin?`<div class="input-wrap"><label class="input-label">${state.lang==='es'?'Fecha de nacimiento':'Date of birth'}</label><input class="input" id="an-bd" type="date"></div>`:''}
+      ${!isLogin?`<div class="input-wrap"><label class="input-label" id="al-type">${t('authAccountType')}</label><select class="select input" id="atype"><option id="at1">${t('authTypeAdult')}</option><option id="at3">${t('authTypeFamily')}</option><option id="at4">${t('authTypeChurch')}</option></select></div>`:''}
+      ${!isLogin?`<div style="font-size:12px;color:rgba(245,240,232,0.35);text-align:center">${state.lang==='es'?'¿Tu hijo tiene entre 4 y 12 años? Crea su perfil desde tu cuenta después de registrarte, no necesita su propio login.':"Have a child aged 4–12? Create their profile from your account after signing up — they don't need their own login."}</div>`:''}
       <div style="font-size:12px;color:rgba(201,151,58,0.5);text-align:center" id="al-hint-${type}">${t('authHint')}</div>
       <div id="ae-err-${type}" style="font-size:13px;color:#f08080;display:none;padding:6px 0"></div>
       <button class="btn btn-gold" style="width:100%;justify-content:center;margin-top:4px" onclick="handleAuth('${type}')" id="ab-${type}">${isLogin?t('authLoginBtn'):t('authSignupBtn')}</button>
+      <div style="display:flex;align-items:center;gap:10px;margin:4px 0"><div style="flex:1;height:1px;background:rgba(245,240,232,0.1)"></div><span style="font-size:11px;color:rgba(245,240,232,0.3)">${state.lang==='es'?'o':'or'}</span><div style="flex:1;height:1px;background:rgba(245,240,232,0.1)"></div></div>
+      <button class="btn btn-outline" style="width:100%;justify-content:center" onclick="signInWithGoogle()">${state.lang==='es'?'Continuar con Google':'Continue with Google'}</button>
       <button class="btn btn-ghost" style="width:100%;justify-content:center" onclick="navigate('${isLogin?'signup':'login'}')" id="as-${type}">${isLogin?t('authGoSignup'):t('authGoLogin')}</button>
     </div>
     <div style="text-align:center;margin-top:16px"><a style="font-size:13px;color:rgba(201,151,58,0.5);cursor:pointer" onclick="navigate('landing')" id="ab2-${type}">${t('authBack')}</a></div>
@@ -1384,6 +1404,8 @@ function buildSidebar(){
   return `<div class="sidebar-section" id="sb-s1">${t('navSectionFaith')}</div>
   ${items.map(([pg,label,i])=>`<button class="sidebar-item" data-page="${pg}" onclick="navigateApp('${pg}')">${ic(i)} <span>${label}</span>${pg==='chat'?'<span class="sidebar-badge">IA</span>':''}</button>`).join('')}
   <div class="sidebar-section" id="sb-s2">${t('navSectionMore')}</div>
+  <button class="sidebar-item" data-page="children" onclick="navigateApp('children')">${ic('heart')} <span>${state.lang==='es'?'Mis hijos':'My children'}</span></button>
+  <button class="sidebar-item" data-page="security" onclick="navigateApp('security')">🔒 <span>${state.lang==='es'?'Seguridad':'Security'}</span></button>
   <button class="sidebar-item" data-page="pricing-page" onclick="navigate('pricing-page')">${ic('gift')} <span id="sb-pricing">${t('navPricing')}</span></button>`;
 }
 
@@ -1410,19 +1432,21 @@ function buildPricingPage(){
 }
 
 function getPricingPlans(){
-  const l=state.lang;
   return [
     {key:'free',  name:{es:'Gratuito',en:'Free'},     price:'0',  period:{es:'para siempre',en:'forever'},
-     features:{es:['Tutor IA (20 mensajes/mes)','Devocional diario','3 lecciones por mes','Plan de lectura básico'],en:['AI Tutor (20 messages/month)','Daily devotional','3 lessons per month','Basic reading plan']},
+     features:{es:['Tutor IA (15 mensajes/mes)','Devocional diario','3 lecciones por mes','Plan de lectura básico'],en:['AI Tutor (15 messages/month)','Daily devotional','3 lessons per month','Basic reading plan']},
      btn:{es:'Empezar gratis',en:'Start free'},featured:false},
-    {key:'personal',name:{es:'Personal',en:'Personal'},price:'7', period:{es:'/mes · $70/año',en:'/month · $70/year'},
-     features:{es:['Tutor IA ilimitado','Todas las lecciones','Quiz completo','Haven — acompañamiento','Sin anuncios'],en:['Unlimited AI Tutor','All lessons','Full quiz','Haven — accompaniment','No ads']},
+    {key:'basic',name:{es:'Fe',en:'Faith'},price:'59', period:{es:'MXN/mes',en:'MXN/month'},
+     features:{es:['Tutor IA (80 mensajes/mes)','Todas las lecciones','Quiz completo','Sin anuncios'],en:['AI Tutor (80 messages/month)','All lessons','Full quiz','No ads']},
+     btn:{es:'Comenzar plan Fe',en:'Start Faith plan'},featured:false},
+    {key:'premium',name:{es:'Gracia',en:'Grace'},price:'119', period:{es:'MXN/mes',en:'MXN/month'},
+     features:{es:['Tutor IA (300 mensajes/mes)','Todo lo de Fe','Haven — acompañamiento','Multiplicadores de racha'],en:['AI Tutor (300 messages/month)','Everything in Faith','Haven — accompaniment','Streak multipliers']},
      btn:{es:'Comenzar plan Gracia',en:'Start Grace plan'},featured:true},
-    {key:'family', name:{es:'Familia',en:'Family'},    price:'14', period:{es:'/mes · hasta 5',en:'/month · up to 5'},
-     features:{es:['Todo Personal ×5','Panel de padres','Modo niños','Reportes familiares'],en:['Everything Personal ×5','Parent dashboard','Kids mode','Family reports']},
+    {key:'family', name:{es:'Familia',en:'Family'},    price:'199', period:{es:'MXN/mes · hasta 5',en:'MXN/month · up to 5'},
+     features:{es:['Tutor IA (500 mensajes/mes, compartido)','Todo lo de Gracia ×5','Perfiles de hijos','Reportes familiares'],en:['AI Tutor (500 messages/month, shared)','Everything in Grace ×5','Child profiles','Family reports']},
      btn:{es:'Plan familiar',en:'Family plan'},featured:false},
-    {key:'church', name:{es:'Iglesia',en:'Church'},    price:'49', period:{es:'/mes · ilimitado',en:'/month · unlimited'},
-     features:{es:['Todo Familia ilimitado','Panel admin','Soporte dedicado','Reporte mensual'],en:['Everything Family unlimited','Admin panel','Dedicated support','Monthly report']},
+    {key:'church', name:{es:'Iglesia',en:'Church'},    price:'499', period:{es:'MXN/mes · ilimitado',en:'MXN/month · unlimited'},
+     features:{es:['Tutor IA (1200 mensajes/mes)','Todo lo de Familia','Panel admin','Soporte dedicado'],en:['AI Tutor (1200 messages/month)','Everything in Family','Admin panel','Dedicated support']},
      btn:{es:'Contactar ventas',en:'Contact sales'},featured:false},
   ];
 }
@@ -1433,7 +1457,7 @@ function renderPricingCards(plans,compact){
   ${plans.map(p=>`<div class="pricing-card ${p.featured?'featured':''}">
     ${p.featured?`<div class="pricing-popular">${t('pricingMostPopular')}</div>`:''}
     <div class="pricing-name">${p.name[state.lang]||p.name.es}</div>
-    <div class="pricing-price">$${p.price}<span> USD</span></div>
+    <div class="pricing-price">$${p.price}</div>
     <div class="pricing-period">${(p.period[state.lang]||p.period.es)}</div>
     <div class="pricing-features">${(p.features[state.lang]||p.features.es).map(f=>`<div class="pricing-feature"><span class="pricing-check">✓</span>${f}</div>`).join('')}</div>
     <button class="btn ${p.featured?'btn-gold':'btn-outline'}" style="width:100%;justify-content:center" onclick="handleCheckout('${p.key}')">${(p.btn[state.lang]||p.btn.es)}</button>
@@ -1451,7 +1475,8 @@ function navigateApp(pg){
   const map = {
     home:buildHome, chat:buildChat, lessons:buildLessons,
     devotional:buildDevotional, reading:buildReading,
-    quiz:buildQuiz, haven:buildHaven, churches:buildChurches, store:buildStore
+    quiz:buildQuiz, haven:buildHaven, churches:buildChurches, store:buildStore,
+    children:buildChildren, security:buildSecurity
   };
   const mc = document.getElementById('main-content');
   if(!mc) return;
@@ -1722,9 +1747,13 @@ async function sendChat(){
   chatBusy = true;
 
   const lng = state.lang==='en'?'English':'Spanish (español)';
-  const deep = needsDeep(txt);
+  const userAge = ageFromBirthdate(state.user?.birthdate);
+  const isTeen = state.mode!=='kids' && userAge!==null && userAge<18;
+  const deep = needsDeep(txt) && !isTeen; // menores de 18 sin perfil de niño se quedan en Capa 2 (sin la capa "profunda" sin supervisión)
   const sys = state.mode==='kids'
-    ? `You are a warm biblical guide for children ages 4-12. Always respond in ${lng}. Use simple language and emojis ⭐🙏. NEVER inappropriate content. If danger, say to talk to a trusted adult. Max 3 short paragraphs.`
+    ? `You are a warm biblical guide for a child named ${state.activeChildName||''}, ages 4-12. Always respond in ${lng}. Use simple language and emojis ⭐🙏. NEVER inappropriate content. If danger, say to talk to a trusted adult. Max 3 short paragraphs.`
+    : isTeen
+    ? `You are a caring Christian biblical tutor for a teenager (13-17) on the MyFather app. Always respond in ${lng}. Cite Bible verses with exact references. Keep language age-appropriate, avoid explicit or mature content. If suicidal thoughts or danger, respond with love and include crisis resources immediately, and gently encourage talking to a trusted adult. Max 150 words.`
     : `You are a wise Christian biblical tutor for MyFather app. Always respond in ${lng}. Cite Bible verses with exact references. Be compassionate and deep. If suicidal thoughts, respond with love and include crisis resources immediately. Max ${deep?280:120} words.`;
 
   try{
@@ -2120,6 +2149,20 @@ async function handleAuth(type){
     if(type==='login'){
       const {data,error} = await db.auth.signInWithPassword({email,password:pass});
       if(error) throw error;
+      // Si la cuenta tiene 2FA activado, pedir el código antes de dar acceso
+      const { data:aal } = await db.auth.mfa.getAuthenticatorAssuranceLevel();
+      if(aal?.nextLevel==='aal2' && aal?.currentLevel!=='aal2'){
+        const { data:factors } = await db.auth.mfa.listFactors();
+        const factor = factors?.totp?.find(f=>f.status==='verified');
+        if(factor){
+          const code = prompt(state.lang==='es'?'Ingresa tu código de verificación en dos pasos:':'Enter your two-factor verification code:');
+          if(!code) throw new Error(state.lang==='es'?'Se requiere el código de verificación.':'Verification code required.');
+          const { data:ch, error:chErr } = await db.auth.mfa.challenge({ factorId:factor.id });
+          if(chErr) throw chErr;
+          const { error:vErr } = await db.auth.mfa.verify({ factorId:factor.id, challengeId:ch.id, code:code.trim() });
+          if(vErr) throw new Error(state.lang==='es'?'Código incorrecto.':'Incorrect code.');
+        }
+      }
       const profile = await loadProfile(data.user.id);
       state.user={
         id:data.user.id, email,
@@ -2131,15 +2174,27 @@ async function handleAuth(type){
         extra_msgs:profile?.extra_msgs||0,
         joined_at:profile?.created_at||new Date().toISOString(),
         quiz_avg:profile?.quiz_avg||0,
+        birthdate:profile?.birthdate||null,
       };
       state.streak = state.user.streak;
       state.lang   = profile?.lang||state.lang;
       await countMsgsThisMonth(data.user.id);
+      await loadChildProfiles();
       navigate('app'); navigateApp('home');
     } else {
+      const isEs = state.lang==='es';
       const name = document.getElementById('an-inp')?.value.trim();
       const accountType = document.getElementById('atype')?.value||'adult';
+      const birthdate = document.getElementById('an-bd')?.value;
       if(!name){if(err){err.style.display='block';err.textContent=t('authLoginError');} return;}
+      if(!birthdate){if(err){err.style.display='block';err.textContent=isEs?'Ingresa tu fecha de nacimiento.':'Enter your date of birth.';} return;}
+      const age = ageFromBirthdate(birthdate);
+      if(age<13){
+        if(err){err.style.display='block';err.textContent=isEs
+          ?'Los menores de 13 años no pueden crear su propia cuenta. Pídele a tu papá, mamá o tutor que cree tu perfil desde la suya.'
+          :"Kids under 13 can't create their own account. Ask a parent or guardian to create your profile from their account.";}
+        return;
+      }
       const {data,error} = await db.auth.signUp({
         email,password:pass,
         options:{data:{full_name:name,account_type:accountType,lang:state.lang}}
@@ -2147,12 +2202,10 @@ async function handleAuth(type){
       if(error) throw error;
       // Crear perfil en Supabase
       await db.from('profiles').upsert({
-        id:data.user.id, email, full_name:name,
-        plan:'free', streak:0, coins:0, extra_msgs:0,
+        id:data.user.id, email, full_name:name, birthdate,
         account_type:accountType, lang:state.lang,
-        created_at:new Date().toISOString()
       },{onConflict:'id'});
-      state.user={id:data.user.id,email,name,plan:'free',streak:0,account_type:accountType,coins:0,extra_msgs:0,joined_at:new Date().toISOString(),quiz_avg:0};
+      state.user={id:data.user.id,email,name,plan:'free',streak:0,account_type:accountType,coins:0,extra_msgs:0,joined_at:new Date().toISOString(),quiz_avg:0,birthdate};
       state.msgThisMonth=0;
       // Email bienvenida (no bloqueante)
       fetch(`${CF}/welcome`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,name,lang:state.lang})}).catch(()=>{});
@@ -2179,24 +2232,240 @@ async function handleAuth(type){
     if(btn){btn.disabled=false;btn.textContent=type==='login'?t('authLoginBtn'):t('authSignupBtn');}
   }
 }
+async function signInWithGoogle(){
+  await db.auth.signInWithOAuth({ provider:'google', options:{ redirectTo: window.location.origin } });
+}
+
+async function finishOnboarding(){
+  const isEs = state.lang==='es';
+  const bd = document.getElementById('ob-bd')?.value;
+  const err = document.getElementById('ob-err');
+  if(!bd){ if(err){err.style.display='block';err.textContent=isEs?'Ingresa tu fecha de nacimiento.':'Enter your date of birth.';} return; }
+  const age = ageFromBirthdate(bd);
+  if(age<13){
+    if(err){err.style.display='block';err.textContent=isEs
+      ?'Los menores de 13 años no pueden tener su propia cuenta. Pídele a tu papá, mamá o tutor que cree tu perfil desde la suya, y cierra esta sesión.'
+      :"Kids under 13 can't have their own account. Ask a parent or guardian to create your profile from theirs, and sign out of this session.";}
+    return;
+  }
+  await db.from('profiles').update({ birthdate:bd }).eq('id',state.user.id);
+  state.user.birthdate = bd;
+  document.getElementById('onboarding-screen')?.remove();
+  navigate('app'); navigateApp('home');
+}
+
+function showOnboarding(){
+  const isEs = state.lang==='es';
+  const box = document.createElement('div');
+  box.id='onboarding-screen';
+  box.style.cssText='position:fixed;inset:0;background:rgba(10,8,6,0.96);z-index:3000;display:flex;align-items:center;justify-content:center;padding:20px';
+  box.innerHTML = `<div class="auth-card" style="max-width:380px">
+    <div class="auth-logo">✝ MyFather</div>
+    <div class="auth-tagline">${isEs?'Un último paso':'One last step'}</div>
+    <p style="font-size:13px;color:rgba(245,240,232,0.5);text-align:center;margin-bottom:16px">${isEs?'Necesitamos tu fecha de nacimiento para mostrarte contenido apropiado para tu edad.':'We need your date of birth to show you age-appropriate content.'}</p>
+    <div class="input-wrap"><label class="input-label">${isEs?'Fecha de nacimiento':'Date of birth'}</label><input class="input" id="ob-bd" type="date"></div>
+    <div id="ob-err" style="font-size:13px;color:#f08080;display:none;padding:6px 0"></div>
+    <button class="btn btn-gold" style="width:100%;justify-content:center" onclick="finishOnboarding()">${isEs?'Continuar':'Continue'}</button>
+  </div>`;
+  document.body.appendChild(box);
+}
+
 function signOut(){
   db.auth.signOut().catch(()=>{});
   state.user=null;state.supaSession=null;state.chatHistory=[];state.streak=0;
+  state.activeChildId=null;state.activeChildName=null;state.childProfiles=[];
   navigate('landing');
 }
-function signOut(){state.user=null;state.chatHistory=[];navigate('landing');}
 function enterMode(m){state.mode=m;document.body.classList.toggle('kids-mode',m==='kids');if(!state.user){navigate('login');}else{navigate('app');navigateApp('home');}}
 
 // ══════════════════════════════════
 // TOGGLES
 // ══════════════════════════════════
 function toggleMode(){
-  state.mode=state.mode==='adult'?'kids':'adult';
+  if(state.mode==='adult'){
+    // Para entrar a modo niños hace falta elegir (o crear) un perfil de hijo
+    navigateApp('children');
+    return;
+  }
+  exitChildMode();
+}
+
+function applyMode(){
   document.body.classList.toggle('kids-mode',state.mode==='kids');
   const mb=document.getElementById('app-mode'); if(mb) mb.textContent=state.mode==='kids'?t('switchToAdult'):t('switchToKids');
-  const ml=document.getElementById('app-tag'); if(ml) ml.textContent=state.mode==='kids'?(state.lang==='en'?'KIDS MODE ⭐':'MODO NIÑOS ⭐'):t('appTagline');
+  const ml=document.getElementById('app-tag'); if(ml) ml.textContent=state.mode==='kids'?`${state.lang==='en'?'KIDS MODE':'MODO NIÑOS'} ⭐ ${esc(state.activeChildName||'')}`:t('appTagline');
   const sb=document.getElementById('sidebar'); if(sb) sb.innerHTML=buildSidebar();
+}
+
+function exitChildMode(){
+  state.mode='adult'; state.activeChildId=null; state.activeChildName=null;
+  applyMode();
   navigateApp('home');
+}
+
+function ageFromBirthdate(bd){
+  if(!bd) return null;
+  const b=new Date(bd), n=new Date();
+  let age=n.getFullYear()-b.getFullYear();
+  if(n.getMonth()<b.getMonth()||(n.getMonth()===b.getMonth()&&n.getDate()<b.getDate())) age--;
+  return age;
+}
+
+async function loadChildProfiles(){
+  if(!state.user) return;
+  const { data } = await db.from('child_profiles').select('*').eq('parent_id',state.user.id).order('created_at');
+  state.childProfiles = data||[];
+}
+
+async function enterChildMode(id){
+  const c = state.childProfiles.find(c=>c.id===id);
+  if(!c) return;
+  state.mode='kids'; state.activeChildId=c.id; state.activeChildName=c.name;
+  applyMode();
+  navigateApp('home');
+}
+
+async function createChildProfile(){
+  const isEs = state.lang==='es';
+  const name = document.getElementById('cp-name')?.value.trim();
+  const bd = document.getElementById('cp-bd')?.value;
+  const err = document.getElementById('cp-err');
+  if(!name || !bd){ if(err){err.style.display='block';err.textContent=isEs?'Completa el nombre y la fecha de nacimiento.':'Fill in the name and birthdate.';} return; }
+  const age = ageFromBirthdate(bd);
+  if(age===null || age<0 || age>17){ if(err){err.style.display='block';err.textContent=isEs?'La fecha debe corresponder a un menor de edad.':'The date must correspond to a minor.';} return; }
+  const { error } = await db.from('child_profiles').insert({parent_id:state.user.id,name,birthdate:bd});
+  if(error){ if(err){err.style.display='block';err.textContent=error.message;} return; }
+  document.getElementById('cp-name').value=''; document.getElementById('cp-bd').value='';
+  if(err) err.style.display='none';
+  await loadChildProfiles();
+  navigateApp('children');
+}
+
+// ══════════════════════════════════
+// SEGURIDAD — 2FA (TOTP)
+// ══════════════════════════════════
+let _mfaEnroll = null; // { id, secret, uri }
+
+async function loadMfaFactors(){
+  const { data } = await db.auth.mfa.listFactors();
+  return (data?.totp||[]).filter(f=>f.status==='verified');
+}
+
+async function startMfaEnroll(){
+  const { data, error } = await db.auth.mfa.enroll({ factorType:'totp' });
+  const box = document.getElementById('mfa-box');
+  if(error){ if(box) box.innerHTML = `<div style="color:#f08080;font-size:13px">${error.message}</div>`; return; }
+  _mfaEnroll = { id:data.id, secret:data.totp.secret, uri:data.totp.uri };
+  const isEs = state.lang==='es';
+  if(box) box.innerHTML = `
+    <div style="font-size:13px;color:rgba(245,240,232,0.6);margin-bottom:10px">${isEs?'Abre Google Authenticator, Authy, etc. y agrega esta clave manualmente (tipo "basada en tiempo"):':'Open Google Authenticator, Authy, etc. and add this key manually (time-based type):'}</div>
+    <div style="font-family:monospace;font-size:15px;color:var(--gold);letter-spacing:.05em;word-break:break-all;background:rgba(245,240,232,0.06);border-radius:8px;padding:12px;margin-bottom:14px;user-select:all">${esc(_mfaEnroll.secret)}</div>
+    <div class="input-wrap"><label class="input-label">${isEs?'Código de 6 dígitos':'6-digit code'}</label><input class="input" id="mfa-code" maxlength="6" placeholder="000000"></div>
+    <div id="mfa-err" style="font-size:13px;color:#f08080;display:none;padding:6px 0"></div>
+    <button class="btn btn-gold" onclick="confirmMfaEnroll()">${isEs?'Activar 2FA':'Enable 2FA'}</button>`;
+}
+
+async function confirmMfaEnroll(){
+  const code = document.getElementById('mfa-code')?.value.trim();
+  const err = document.getElementById('mfa-err');
+  if(!code){ if(err){err.style.display='block';err.textContent=state.lang==='es'?'Ingresa el código.':'Enter the code.';} return; }
+  const { data:ch, error:chErr } = await db.auth.mfa.challenge({ factorId:_mfaEnroll.id });
+  if(chErr){ if(err){err.style.display='block';err.textContent=chErr.message;} return; }
+  const { error:vErr } = await db.auth.mfa.verify({ factorId:_mfaEnroll.id, challengeId:ch.id, code });
+  if(vErr){ if(err){err.style.display='block';err.textContent=state.lang==='es'?'Código incorrecto, intenta de nuevo.':'Incorrect code, try again.';} return; }
+  toast(state.lang==='es'?'✅ 2FA activado':'✅ 2FA enabled');
+  navigateApp('security');
+}
+
+async function disableMfa(factorId){
+  if(!confirm(state.lang==='es'?'¿Desactivar la verificación en dos pasos?':'Disable two-factor verification?')) return;
+  await db.auth.mfa.unenroll({ factorId });
+  toast(state.lang==='es'?'2FA desactivado':'2FA disabled');
+  navigateApp('security');
+}
+
+async function buildSecurityAsync(){
+  const factors = await loadMfaFactors();
+  const isEs = state.lang==='es';
+  const box = document.getElementById('security-content');
+  if(!box) return;
+  if(factors.length){
+    box.innerHTML = `<div class="card" style="max-width:420px">
+      <div class="card-title">${isEs?'Verificación en dos pasos':'Two-factor verification'}</div>
+      <div style="color:#7ecfa0;font-size:14px;margin-bottom:14px">✅ ${isEs?'Activada':'Enabled'}</div>
+      <button class="btn btn-danger btn-sm" onclick="disableMfa('${factors[0].id}')">${isEs?'Desactivar':'Disable'}</button>
+    </div>`;
+  } else {
+    box.innerHTML = `<div class="card" style="max-width:420px">
+      <div class="card-title">${isEs?'Verificación en dos pasos':'Two-factor verification'}</div>
+      <p style="font-size:13px;color:rgba(245,240,232,0.5);margin-bottom:14px">${isEs?'Agrega una capa extra de seguridad con una app como Google Authenticator o Authy.':'Add an extra layer of security with an app like Google Authenticator or Authy.'}</p>
+      <div id="mfa-box"><button class="btn btn-gold" onclick="startMfaEnroll()">${isEs?'Activar 2FA':'Enable 2FA'}</button></div>
+    </div>`;
+  }
+}
+
+function buildSecurity(){
+  setTimeout(buildSecurityAsync,0);
+  return `<div style="max-width:700px">
+  <div class="section-title" style="margin-bottom:16px">${state.lang==='es'?'Seguridad de tu cuenta':'Account security'}</div>
+  <div id="security-content" class="empty">${state.lang==='es'?'Cargando...':'Loading...'}</div>
+</div>`;
+}
+
+// ══════════════════════════════════
+// TIENDA
+// ══════════════════════════════════
+const STORE_ITEMS_UI = [
+  {key:'shield1',  mxn:9,   emoji:'🛡️', name:{es:'Escudo Racha 1 día',en:'1-Day Streak Shield'}},
+  {key:'shield7',  mxn:25,  emoji:'🛡️', name:{es:'Escudo Semanal',en:'Weekly Shield'}},
+  {key:'shield30', mxn:59,  emoji:'🛡️', name:{es:'Escudo de Mes',en:'Month Shield'}},
+  {key:'quiz_hint',mxn:5,   emoji:'😇', name:{es:'Ayuda de Ángel',en:'Angel Hint'}},
+  {key:'quiz_time',mxn:5,   emoji:'⏱️', name:{es:'Tiempo Extra +45s',en:'+45s Extra Time'}},
+  {key:'quiz_skip',mxn:8,   emoji:'⏭️', name:{es:'Saltar Pregunta',en:'Skip Question'}},
+  {key:'chat20',   mxn:10,  emoji:'💬', name:{es:'+20 Mensajes IA',en:'+20 AI Messages'}},
+  {key:'chat50',   mxn:19,  emoji:'💬', name:{es:'+50 Mensajes IA',en:'+50 AI Messages'}},
+  {key:'xp2',      mxn:15,  emoji:'✨', name:{es:'Multiplicador ×2',en:'×2 Multiplier'}},
+  {key:'coins_50', mxn:25,  emoji:'🕯️', name:{es:'50 Luces de Fe',en:'50 Faith Lights'}},
+  {key:'coins_150',mxn:59,  emoji:'🕯️', name:{es:'150 Luces de Fe',en:'150 Faith Lights'}},
+  {key:'coins_400',mxn:129, emoji:'🕯️', name:{es:'400 Luces de Fe',en:'400 Faith Lights'}},
+];
+
+function buildStore(){
+  const isEs = state.lang==='es';
+  return `<div style="max-width:900px">
+  <div class="section-title" style="margin-bottom:4px">${isEs?'Tienda':'Store'}</div>
+  <p style="font-size:13px;color:rgba(245,240,232,0.45);margin-bottom:20px">${isEs?'Compras únicas — pago seguro con Mercado Pago.':'One-time purchases — secure checkout with Mercado Pago.'}</p>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px">
+    ${STORE_ITEMS_UI.map(it=>`<div class="card" style="text-align:center">
+      <div style="font-size:28px;margin-bottom:8px">${it.emoji}</div>
+      <div style="font-weight:500;font-size:13px;margin-bottom:10px">${esc(it.name[state.lang]||it.name.es)}</div>
+      <button class="btn btn-gold btn-sm" style="width:100%;justify-content:center" onclick="buyItem('${it.key}')">$${it.mxn} MXN</button>
+    </div>`).join('')}
+  </div>
+</div>`;
+}
+
+function buildChildren(){
+  const isEs = state.lang==='es';
+  return `<div style="max-width:700px">
+  <div class="section-title" style="margin-bottom:4px">${isEs?'Perfiles de tus hijos':"Your children's profiles"}</div>
+  <p style="font-size:13px;color:rgba(245,240,232,0.45);margin-bottom:20px">${isEs?'Cada perfil tiene su propio modo niños, su propio progreso y su propia cuota de mensajes IA — no le quita mensajes a tu cuenta.':"Each profile has its own kids mode, its own progress, and its own AI message quota — it doesn't take messages from your account."}</p>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-bottom:28px">
+    ${(state.childProfiles||[]).map(c=>`<div class="card" style="text-align:center">
+      <div style="font-size:32px;margin-bottom:8px">⭐</div>
+      <div style="font-weight:500;margin-bottom:2px">${esc(c.name)}</div>
+      <div style="font-size:12px;color:rgba(245,240,232,0.4);margin-bottom:14px">${ageFromBirthdate(c.birthdate)} ${isEs?'años':'yo'}</div>
+      <button class="btn btn-gold btn-sm" style="width:100%;justify-content:center" onclick="enterChildMode('${c.id}')">${isEs?'Entrar como':'Enter as'} ${esc(c.name)}</button>
+    </div>`).join('') || `<div class="empty" style="grid-column:1/-1">${isEs?'Aún no tienes perfiles de hijos.':"You don't have any child profiles yet."}</div>`}
+  </div>
+  <div class="card" style="max-width:360px">
+    <div class="card-title">${isEs?'Agregar un hijo':'Add a child'}</div>
+    <div class="input-wrap"><label class="input-label">${isEs?'Nombre':'Name'}</label><input class="input" id="cp-name"></div>
+    <div class="input-wrap"><label class="input-label">${isEs?'Fecha de nacimiento':'Birthdate'}</label><input class="input" id="cp-bd" type="date"></div>
+    <div id="cp-err" style="font-size:13px;color:#f08080;display:none;padding:6px 0"></div>
+    <button class="btn btn-gold" style="width:100%;justify-content:center;margin-top:4px" onclick="createChildProfile()">${isEs?'Crear perfil':'Create profile'}</button>
+  </div>
+</div>`;
 }
 
 function toggleLang(){
@@ -2232,7 +2501,7 @@ function rebuildUI(){
   });
   setAuth('al-name','authName'); setAuth('al-type','authAccountType');
   const at=document.getElementById('atype');
-  if(at){at.options[0].text=t('authTypeAdult');at.options[1].text=t('authTypeKids');at.options[2].text=t('authTypeFamily');at.options[3].text=t('authTypeChurch');}
+  if(at){at.options[0].text=t('authTypeAdult');at.options[1].text=t('authTypeFamily');at.options[2].text=t('authTypeChurch');}
   // app nav
   setAuth('app-tag','appTagline'); setAuth('app-mode',state.mode==='kids'?'switchToAdult':'switchToKids');
   setAuth('app-crisis','emergencyBtn'); setAuth('app-so','signOut');
