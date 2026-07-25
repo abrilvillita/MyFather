@@ -897,42 +897,44 @@ async function loadContentFromDB(){
   } catch(e){ console.warn('DB content fallback:', e?.message); }
 }
 
+async function hydrateSession(session){
+  state.supaSession = session;
+  let profile = await loadProfile(session.user.id);
+  if(!profile){
+    // Primer login (ej. Google OAuth) — aún no existe fila en profiles
+    const meta = session.user.user_metadata||{};
+    await db.from('profiles').upsert({
+      id: session.user.id,
+      full_name: meta.full_name||meta.name||session.user.email.split('@')[0],
+      account_type: 'adult', lang: state.lang,
+    },{onConflict:'id'});
+    profile = await loadProfile(session.user.id);
+  }
+  if(profile){
+    state.user = {
+      id:           session.user.id,
+      email:        session.user.email,
+      name:         profile.full_name,
+      plan:         profile.plan||'free',
+      streak:       profile.streak||0,
+      account_type: profile.account_type||'adult',
+      coins:        profile.coins||0,
+      extra_msgs:   profile.extra_msgs||0,
+      joined_at:    profile.created_at,
+      quiz_avg:     profile.quiz_avg||0,
+      birthdate:    profile.birthdate||null,
+    };
+    state.streak = profile.streak||0;
+    state.lang   = profile.lang||state.lang;
+    document.documentElement.lang = state.lang;
+    await countMsgsThisMonth(session.user.id);
+    await loadChildProfiles();
+  }
+}
+
 async function initSupabase(){
   const { data:{session} } = await db.auth.getSession();
-  if(session){
-    state.supaSession = session;
-    let profile = await loadProfile(session.user.id);
-    if(!profile){
-      // Primer login (ej. Google OAuth) — aún no existe fila en profiles
-      const meta = session.user.user_metadata||{};
-      await db.from('profiles').upsert({
-        id: session.user.id,
-        full_name: meta.full_name||meta.name||session.user.email.split('@')[0],
-        account_type: 'adult', lang: state.lang,
-      },{onConflict:'id'});
-      profile = await loadProfile(session.user.id);
-    }
-    if(profile){
-      state.user = {
-        id:           session.user.id,
-        email:        session.user.email,
-        name:         profile.full_name,
-        plan:         profile.plan||'free',
-        streak:       profile.streak||0,
-        account_type: profile.account_type||'adult',
-        coins:        profile.coins||0,
-        extra_msgs:   profile.extra_msgs||0,
-        joined_at:    profile.created_at,
-        quiz_avg:     profile.quiz_avg||0,
-        birthdate:    profile.birthdate||null,
-      };
-      state.streak = profile.streak||0;
-      state.lang   = profile.lang||state.lang;
-      document.documentElement.lang = state.lang;
-      await countMsgsThisMonth(session.user.id);
-      await loadChildProfiles();
-    }
-  }
+  if(session) await hydrateSession(session);
   loadContentFromDB(); // paralelo, no bloquea
   buildApp();
   // Navegar según si hay sesión activa o no
@@ -945,8 +947,23 @@ async function initSupabase(){
   }
 }
 
-db.auth.onAuthStateChange((ev,session)=>{
-  if(ev==='SIGNED_OUT'){ state.user=null; state.supaSession=null; navigate('landing'); }
+let _authHandled = false;
+db.auth.onAuthStateChange(async (ev,session)=>{
+  if(ev==='SIGNED_OUT'){ state.user=null; state.supaSession=null; navigate('landing'); return; }
+  // Cubre el caso de login con Google: el redirect trae la sesión un momento
+  // después de que initSupabase() ya corrió, así que hay que reaccionar aquí también.
+  if((ev==='SIGNED_IN'||ev==='INITIAL_SESSION') && session && (!state.user || state.user.id!==session.user.id)){
+    if(_authHandled) return;
+    _authHandled = true;
+    await hydrateSession(session);
+    if(state.user){
+      if(!document.getElementById('page-app')) buildApp();
+      navigate('app');
+      navigateApp('home');
+      if(!state.user.birthdate) showOnboarding();
+    }
+    _authHandled = false;
+  }
 });
 
 // ══════════════════════════════════════════════════════
