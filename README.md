@@ -13,28 +13,17 @@ Aprendizaje bíblico en español e inglés con lecciones, actividades y espacios
 - La tienda habilitada vende mensajes adicionales. Los artículos sin efecto implementado no están disponibles para comprar.
 - La ubicación es opcional: el navegador ordena las iglesias aprobadas sin enviar las coordenadas personales a MyFather.
 
-## Componentes
+## Archivos de este repositorio
 
-`index.html` contiene la aplicación. Las páginas públicas de información, privacidad, términos y soporte funcionan sin iniciar sesión. `worker/index.js` verifica sesiones, separa los mundos, limita la IA y valida los pagos. `database/launch.sql` contiene la actualización revisable de PostgreSQL y sus permisos.
+Este repositorio contiene únicamente el sitio público: la aplicación en `index.html`, sus páginas informativas, imágenes, configuración de dominio y archivos para buscadores.
 
-El panel del operador se distribuye de forma privada, fuera de este repositorio. Sus operaciones requieren una cuenta administradora con segundo factor; conocer su dirección o el código público del servicio no concede acceso.
+El Worker se administra en Cloudflare. Las migraciones de Supabase, pruebas del servidor y herramientas de operación se conservan por separado. El panel administrativo es privado y no se distribuye aquí. Sus operaciones requieren autorización en el servidor y segundo factor.
 
-## Desarrollo y verificación
+## Publicación
 
-Requiere Node.js 24 o posterior. Instala las dependencias con `npm ci` y ejecuta `npm test`. Sirve los archivos por HTTP para las pruebas de interfaz; las funciones conectadas necesitan un entorno de Supabase y un Worker configurados. No uses datos ni credenciales de producción en pruebas locales.
+Los archivos estáticos se sirven por HTTPS en myfather.app. El cliente necesita un Worker y un proyecto de Supabase compatibles, configurados por el operador. Ninguna clave de servicio, clave de pago ni credencial de administración pertenece a este repositorio.
 
-Las pruebas incluidas comprueban sintaxis del cliente, autorización, restricciones infantiles, segundo factor, límites de entrada y firmas de notificaciones. No sustituyen una prueba integral de alta, recuperación de cuenta y pago con cuentas de prueba del proveedor.
-
-## Despliegue
-
-1. Revisar y probar la migración en una copia del esquema. Conservar un respaldo antes de aplicarla.
-2. Configurar los secretos del Worker: `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `MP_ACCESS_TOKEN`, `MP_WEBHOOK_SECRET` y `DEEPSEEK_KEY`. No publicarlos en GitHub. `MP_TEST_MODE=true` selecciona pagos de prueba.
-3. Aplicar la migración y publicar el Worker junto con el cliente compatible, durante una ventana controlada.
-4. Configurar en Supabase las URL de redirección autorizadas, el correo de autenticación y los factores de seguridad del operador.
-5. Probar confirmación de correo, recuperación, salida de sesiones, separación de perfiles y cobros duplicados antes de habilitar promoción comercial.
-6. Verificar la propiedad en Search Console y enviar `sitemap.xml`. Google decide cuándo rastrear e indexar cada página.
-
-El cron del Worker elimina contadores antiguos y vence planes. Los secretos y la configuración de correo se administran en sus respectivos proveedores.
+Antes de publicar una versión hay que comprobar la confirmación de correo, recuperación de contraseña, separación de perfiles y validación de pagos en los servicios privados. La verificación de Search Console y el envío del sitemap permiten solicitar el rastreo; Google decide cuándo indexar las páginas.
 
 ## Estado de esta versión
 

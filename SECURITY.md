@@ -13,4 +13,4 @@ Report suspected vulnerabilities to **texthumanapp@gmail.com**. Include the affe
 
 ## Validation
 
-Run `npm ci` and `npm test`. Database upgrade validation must include role-based access tests and transaction rollback tests for duplicate payments and lesson rewards before deployment. Passing unit tests alone does not establish production readiness.
+Server tests and migrations are maintained privately outside this static-site repository. Database upgrade validation must include role-based access tests and transaction rollback tests for duplicate payments and lesson rewards before deployment. Passing unit tests alone does not establish production readiness.

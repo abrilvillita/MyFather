@@ -10,3 +10,10 @@ backups/
 *.log
 test-results/
 playwright-report/
+
+# Servicios y herramientas privados
+worker/
+database/
+tests/
+package.json
+package-lock.json
