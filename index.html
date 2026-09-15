@@ -1217,7 +1217,7 @@ const crisisLines = [
   {country:'USA español 🇺🇸', number:'1-888-628-9454', name:'National Lifeline (ES)'},
 ];
 
-function currentQuiz(){return state.mode==='kids'?(KIDS_QUIZ[state.lang]||KIDS_QUIZ.es):(QUIZ[state.lang]||QUIZ.es);}
+function currentQuiz(){return (state.questions||[]).map(q=>({id:q.slug,q:q['question_'+state.lang],opts:q['options_'+state.lang],correct:q.correct,verse:q['reference_'+state.lang]}));}
 
 function buildKidsHome(){const en=state.lang==='en';return `<div class="page-header"><h1>⭐ ${en?'Hello':'Hola'}, ${esc(state.activeChildName||state.user?.name||'')}!</h1><p>${en?'A little learning, one step at a time.':'Aprendamos algo nuevo, paso a paso.'}</p></div><div class="stats-grid"><div class="stat-card"><div class="stat-value">${state.streak||0}</div><p>${en?'Learning days in a row':'Días seguidos aprendiendo'}</p></div><div class="stat-card"><div class="stat-value">⭐ ${state.user?.coins||0}</div><p>${en?'Learning rewards':'Recompensas por aprender'}</p></div></div><div class="card"><h2>${en?'Your next adventure':'Tu siguiente aventura'}</h2><p>${en?'Choose a lesson or practice with a game.':'Elige una lección o practica con un juego.'}</p><button class="btn btn-gold" onclick="navigateApp('lessons')">📖 ${en?'Lessons':'Lecciones'}</button> <button class="btn btn-outline" onclick="navigateApp('quiz')">🎯 ${en?'Play':'Jugar'}</button></div>`;}
 function buildKidsHaven(){const en=state.lang==='en';return `<div class="page-header"><h1>🌿 ${en?'A quiet moment':'Un momento de calma'}</h1></div><div class="card"><p>${en?'Take a gentle breath. You can pause and talk with a trusted adult about how you feel.':'Respira con calma. Puedes hacer una pausa y hablar con una persona adulta de confianza sobre cómo te sientes.'}</p><p>${en?'If someone is hurting you or you are in danger, ask for help right away.':'Si alguien te hace daño o estás en peligro, pide ayuda de inmediato.'}</p><button class="btn btn-gold" onclick="navigateApp('lessons')">${en?'Back to lessons':'Volver a las lecciones'}</button></div>`;}
@@ -2008,7 +2008,7 @@ function buildReading(){
 // ══════════════════════════════════
 // QUIZ
 // ══════════════════════════════════
-function buildQuiz(){state.quizState={q:0,score:0,answered:false};return renderQuizQ();}
+function buildQuiz(){state.quizState={q:0,score:0,answered:false};if(!currentQuiz().length)return `<div class="card"><h1>${state.lang==='en'?'Practice activities':'Actividades para practicar'}</h1><p>${state.lang==='en'?'New activities are being prepared. You can continue with a lesson.':'Estamos preparando nuevas actividades. Puedes continuar con una lección.'}</p><button class="btn btn-gold" onclick="navigateApp('lessons')">${state.lang==='en'?'Lessons':'Lecciones'}</button></div>`;return renderQuizQ();}
 function renderQuizQ(){
   const qs=currentQuiz();
   if(state.quizState.q>=qs.length) return renderQuizEnd();
@@ -2018,9 +2018,9 @@ function renderQuizQ(){
 <div class="quiz-card">
   <div class="quiz-progress-bar"><div class="quiz-progress-fill" style="width:${(state.quizState.q/qs.length)*100}%"></div></div>
   <div style="font-size:12px;color:rgba(245,240,232,0.35);margin-bottom:20px">${t('quizQuestion')} ${state.quizState.q+1} ${t('quizOf')} ${qs.length}</div>
-  <div class="quiz-q">${q.q}</div>
+  <div class="quiz-q">${esc(q.q)}</div>
   <div class="quiz-options" id="qopts">
-    ${q.opts.map((o,i)=>`<div class="quiz-option" id="qo${i}" onclick="answerQuiz(${i})"><div class="quiz-letter">${'ABCD'[i]}</div><span>${o}</span></div>`).join('')}
+    ${q.opts.map((o,i)=>`<div class="quiz-option" id="qo${i}" onclick="answerQuiz(${i})"><div class="quiz-letter">${'ABCD'[i]}</div><span>${esc(o)}</span></div>`).join('')}
   </div>
   <div id="qfb" style="margin-top:20px;display:none"></div>
 </div>`;
@@ -2035,8 +2035,8 @@ function answerQuiz(idx){
   else state.quizState.score++;
   const fb=document.getElementById('qfb'); if(!fb) return;
   fb.style.display='block';
-  fb.innerHTML=`<div style="font-size:14px;color:rgba(245,240,232,0.6);margin-bottom:12px">${idx===q.correct?t('quizCorrect'):`${t('quizWrong')} <strong style="color:#7ecfa0">${q.opts[q.correct]}</strong>`}</div>
-  <div style="font-family:var(--font-serif);font-style:italic;font-size:14px;color:rgba(245,240,232,0.5);margin-bottom:14px">${t('quizRef')} ${q.verse}</div>
+  fb.innerHTML=`<div style="font-size:14px;color:rgba(245,240,232,0.6);margin-bottom:12px">${idx===q.correct?t('quizCorrect'):`${t('quizWrong')} <strong style="color:#7ecfa0">${esc(q.opts[q.correct])}</strong>`}</div>
+  <div style="font-family:var(--font-serif);font-style:italic;font-size:14px;color:rgba(245,240,232,0.5);margin-bottom:14px">${t('quizRef')} ${esc(q.verse)}</div>
   <button class="btn btn-gold btn-sm" onclick="nextQuizQ()">${state.quizState.q+1<qs.length?t('quizNext'):t('quizFinish')}</button>`;
 }
 function nextQuizQ(){state.quizState.q++;state.quizState.answered=false;document.getElementById('main-content').innerHTML=renderQuizQ();}
@@ -2700,7 +2700,7 @@ async function hydrateSession(session){
 }
 async function loadContentFromDB(){
   if(!state.user)return;
-  const data=await api('/content');state.lessons=data.lessons||[];
+  const data=await api('/content');state.lessons=data.lessons||[];state.questions=data.questions||[];
   if(state.page==='app'&&_currentPage==='lessons')navigateApp('lessons');
 }
 async function loadLessonProgress(){
