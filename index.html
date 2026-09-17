@@ -979,7 +979,7 @@ db.auth.onAuthStateChange((event,session)=>{
   if(event==='TOKEN_REFRESHED')state.supaSession=session;
   setTimeout(async()=>{
     if(event==='PASSWORD_RECOVERY'){showPasswordRecovery();return;}
-    if(event==='SIGNED_OUT'){state.user=null;state.supaSession=null;state.mode='adult';navigate('login');return;}
+    if(event==='SIGNED_OUT'){closeLesson();state.user=null;state.supaSession=null;state.mode='adult';state.lessons=[];state.questions=[];state.childProfiles=[];state.chatHistory=[];navigate('login');return;}
     if(!session||_authHandled||!['SIGNED_IN','INITIAL_SESSION'].includes(event)||state.user)return;
     _authHandled=true;
     try{await hydrateSession(session);if(!document.getElementById('page-app'))buildApp();navigate('app');navigateApp('home');applyMode();if(state.mode==='adult'&&!state.user.birthdate)showOnboarding();}
@@ -1900,6 +1900,7 @@ function renderLessonView(){
     body = `<h3 style="color:var(--gold);font-family:var(--font-serif);font-size:20px;margin-bottom:10px">${esc(s.title||'')}</h3><p style="line-height:1.8;color:rgba(245,240,232,0.85)">${esc(s.body||'')}</p>`;
     if(s.question) body += `<div style="margin-top:18px;padding:14px;background:rgba(201,151,58,0.08);border-left:3px solid var(--gold);border-radius:0 8px 8px 0"><strong style="color:var(--gold)">${isEs?'Para reflexionar:':'To reflect:'}</strong><br>${esc(s.question)}</div>`;
   }
+  if(s.media_id)body+=`<figure><img id="lesson-private-image" alt="${esc(s.alt||'')}" style="max-width:100%;border-radius:12px" hidden><figcaption id="lesson-image-status" style="font-size:13px">${isEs?'Cargando imagen…':'Loading image…'}</figcaption></figure>`;
   let overlay = document.getElementById('lesson-overlay');
   if(!overlay){
     overlay = document.createElement('div');
@@ -1918,6 +1919,10 @@ function renderLessonView(){
       <button class="btn btn-gold" style="flex:1;justify-content:center" onclick="lessonNav(1)">${isLast?(isEs?'Terminar ✓':'Finish ✓'):(isEs?'Siguiente →':'Next →')}</button>
     </div>
   </div>`;
+  if(s.media_id){
+    const image=document.getElementById('lesson-private-image'),caption=document.getElementById('lesson-image-status'),view=_lessonState,mode=state.mode;
+    api('/media?id='+encodeURIComponent(s.media_id)).then(data=>{if(_lessonState===view&&view.idx===idx&&state.mode===mode&&image.isConnected){image.src=data.url;image.hidden=false;caption.textContent='';}}).catch(()=>{if(caption.isConnected)caption.textContent=isEs?'La imagen no está disponible.':'Image unavailable.';});
+  }
 }
 
 async function lessonNav(dir){
@@ -2714,6 +2719,7 @@ async function saveLessonProgress(slug,progress,completed){
 }
 async function enterChildMode(id){
   try{
+    closeLesson();state.questions=[];
     await api('/session/child',{child_id:id});
     await hydrateSession(state.supaSession);buildApp();navigate('app');navigateApp('lessons');applyMode();
   }catch(error){showToast(error.message);}
