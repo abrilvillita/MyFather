@@ -1,0 +1,19 @@
+node_modules/
+.env
+.env.*
+!.env.example
+.dev.vars*
+.wrangler/
+private/
+admin/
+backups/
+*.log
+test-results/
+playwright-report/
+
+# Servicios y herramientas privados
+worker/
+database/
+tests/
+package.json
+package-lock.json

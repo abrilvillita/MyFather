@@ -1,60 +1,36 @@
-<div align="center">
-
 # MyFather
-### Interactive faith-learning platform
 
-[![Prototype](https://img.shields.io/badge/Prototype-myfather.app-635bff?style=for-the-badge&logo=googlechrome&logoColor=white)](https://myfather.app)
-![JavaScript](https://img.shields.io/badge/JavaScript-ES6+-f7df1e?style=for-the-badge&logo=javascript&logoColor=111)
-![Supabase](https://img.shields.io/badge/Supabase-Auth_&_Data-3ecf8e?style=for-the-badge&logo=supabase&logoColor=white)
-![Cloudflare](https://img.shields.io/badge/Cloudflare-Workers-f38020?style=for-the-badge&logo=cloudflare&logoColor=white)
+Aprendizaje bíblico en español e inglés con lecciones, actividades y espacios separados para personas adultas y perfiles infantiles supervisados.
 
-</div>
+[Sitio web](https://myfather.app) · [Privacidad](https://myfather.app/privacy.html) · [Términos](https://myfather.app/terms.html) · [Soporte](https://myfather.app/support.html)
 
----
+## Funcionamiento
 
-## About
-MyFather explores how interactive product design can support structured faith education. It combines guided lessons, quizzes, progression, virtual rewards and AI-assisted conversation.
+- Las lecciones y actividades habituales no necesitan IA. El chat comienza en **Nada de IA**; las personas adultas pueden elegir **Poca IA** o **IA**. Los perfiles infantiles no envían preguntas al proveedor de IA.
+- Entrar a un perfil infantil bloquea esa sesión en el servidor. Para volver al espacio adulto hay que cerrar sesión y autenticarse de nuevo. El servidor comprueba también las solicitudes directas.
+- La finalización de lecciones guarda progreso y entrega una recompensa una sola vez. Los días de aprendizaje se calculan usando la zona horaria elegida al comenzar.
+- Los precios de referencia se muestran en USD. Antes de continuar a Mercado Pago se muestra el importe concreto en MXN y la fecha del tipo de cambio. Los planes duran 30 días y no tienen renovación automática.
+- La tienda habilitada vende mensajes adicionales. Los artículos sin efecto implementado no están disponibles para comprar.
+- La ubicación es opcional: el navegador ordena las iglesias aprobadas sin enviar las coordenadas personales a MyFather.
 
-> Evolving educational prototype — not theological authority, pastoral guidance or a finished commercial service.
+## Archivos de este repositorio
 
-## Experiences
-- Adult, child, family and church account concepts
-- Guided lesson paths and quizzes
-- Streaks, experience points and virtual currency
-- AI-assisted questions and lesson exploration
-- Free and subscription product tiers
-- Digital store and reward concepts
-- Mercado Pago checkout and church registration
-- Spanish and English interface
-- Responsive animation-focused UX
+Este repositorio contiene únicamente el sitio público: la aplicación en `index.html`, sus páginas informativas, imágenes, configuración de dominio y archivos para buscadores.
 
-## Architecture
-```text
-Browser ├→ Supabase Auth
-        └→ Cloudflare Worker ├→ AI provider
-                              ├→ Mercado Pago
-                              ├→ Resend
-                              └→ Supabase / PostgreSQL
-```
+El Worker se administra en Cloudflare. Las migraciones de Supabase, pruebas del servidor y herramientas de operación se conservan por separado. El panel administrativo es privado y no se distribuye aquí. Sus operaciones requieren autorización en el servidor y segundo factor.
 
-## Technology
-HTML5 · CSS3 · JavaScript · Supabase Auth · PostgreSQL · Cloudflare Workers · DeepSeek API · Mercado Pago · Resend
+## Publicación
 
-## Product decisions
-Reusable lesson structures reduce unnecessary AI consumption; static and generated content are combined to control operating cost; motion and feedback make learning more engaging.
+Los archivos estáticos se sirven por HTTPS en myfather.app. El cliente necesita un Worker y un proyecto de Supabase compatibles, configurados por el operador. Ninguna clave de servicio, clave de pago ni credencial de administración pertenece a este repositorio.
 
-## Run locally
-```bash
-git clone https://github.com/abrilvillita/MyFather.git
-cd MyFather
-```
-Open `index.html`. Connected features require backend configuration.
+Antes de publicar una versión hay que comprobar la confirmación de correo, recuperación de contraseña, separación de perfiles y validación de pagos en los servicios privados. La verificación de Search Console y el envío del sitemap permiten solicitar el rastreo; Google decide cuándo indexar las páginas.
 
-## Status
-**Prototype in active development.** Some content and commercial flows remain incomplete.
+## Estado de esta versión
 
-## Media
-Prepared for future lesson walkthroughs, animation previews and a public demo video.
+Preparación de lanzamiento en validación. La existencia del código no certifica que los servicios estén desplegados ni que un cobro real haya sido probado. El lanzamiento internacional, especialmente para menores, requiere verificar las obligaciones aplicables al operador y al mecanismo de consentimiento parental. Los avisos no prometen cumplimiento universal ni seguridad absoluta.
 
----
-<div align="center">Designed and developed by [Abril Miranda Villa Márquez](https://github.com/abrilvillita)</div>
+## Licencia y contacto
+
+El código original se distribuye bajo la [licencia MIT](LICENSE). Esta licencia no cambia las licencias de dependencias, marcas o traducciones bíblicas de terceros.
+
+Soporte y reportes de seguridad: **texthumanapp@gmail.com**. Consulta [SECURITY.md](SECURITY.md) para las reglas de seguridad del proyecto.
