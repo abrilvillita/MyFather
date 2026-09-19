@@ -20,7 +20,7 @@
   <title>MyFather — Faith Education Platform</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500&family=Cinzel:wght@400;600&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0"></script>
+  <script src="./supabase.js"></script>
   <style>
 /* ═══════════════════════════════════════════
    MYFATHER — Design System
@@ -1407,7 +1407,6 @@ function buildAppShell(){
   <a class="nav-logo" onclick="navigateApp('home')">MYFATHER <span id="app-tag">${t('appTagline')}</span></a>
   <div class="nav-links">
     <button class="btn btn-ghost btn-sm" onclick="toggleLang()" id="app-lang">🌐 EN</button>
-    <button class="btn btn-ghost btn-sm" onclick="toggleMode()" id="app-mode">${t('switchToKids')}</button>
     <button class="btn btn-ghost btn-sm" onclick="showReport()">${state.lang==='es'?'Reportar':'Report'}</button>
     <button class="btn btn-ghost btn-sm" onclick="showCrisis()" id="app-crisis">${t('emergencyBtn')}</button>
     <button class="btn btn-outline btn-sm" onclick="signOut()" id="app-so">${t('signOut')}</button>
@@ -1426,7 +1425,6 @@ function buildSidebar(){
   return `<div class="sidebar-section" id="sb-s1">${t('navSectionFaith')}</div>
   ${items.map(([pg,label,i])=>`<button class="sidebar-item" data-page="${pg}" onclick="navigateApp('${pg}')">${ic(i)} <span>${label}</span>${pg==='chat'?'<span class="sidebar-badge">IA</span>':''}</button>`).join('')}
   <div class="sidebar-section" id="sb-s2">${t('navSectionMore')}</div>
-  <button class="sidebar-item" data-page="children" onclick="navigateApp('children')">${ic('heart')} <span>${state.lang==='es'?'Mis hijos':'My children'}</span></button>
   <button class="sidebar-item" data-page="security" onclick="navigateApp('security')">🔒 <span>${state.lang==='es'?'Seguridad':'Security'}</span></button>
   <button class="sidebar-item" data-page="pricing-page" onclick="navigate('pricing-page')">${ic('gift')} <span id="sb-pricing">${t('navPricing')}</span></button>`;
 }
@@ -1526,8 +1524,8 @@ function showUpgradePrompt(){
     <h2 style="font-family:var(--font-display);color:var(--gold);font-size:22px;margin-bottom:10px">${isEs?'14 días juntos':'14 days together'}</h2>
     <p style="font-size:15px;color:rgba(245,240,232,0.7);line-height:1.7;margin-bottom:24px">
       ${isEs
-        ?`Llevas ${daysSinceJoined()} días explorando la Palabra. El plan gratuito tiene límites — el plan Fe por $3 USD/mes te da 60 mensajes IA, 5 lecciones al mes y mucho más.`
-        :`You've spent ${daysSinceJoined()} days exploring the Word. The free plan has limits — the Faith plan for $3 USD/month gives you 60 AI messages, 5 lessons/month and much more.`}
+        ?`Llevas ${daysSinceJoined()} días explorando la Palabra. El plan Fe cuesta $3 USD por 30 días e incluye 80 mensajes IA al mes y todas las lecciones.`
+        :`You've spent ${daysSinceJoined()} days exploring the Word. The Faith plan costs $3 USD for 30 days and includes 80 AI messages per month and all lessons.`}
     </p>
     <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
       <button class="btn btn-gold" onclick="navigate('pricing-page');document.getElementById('upgrade-modal')?.remove()">
@@ -2757,3 +2755,4 @@ initSupabase().catch(()=>{buildApp();navigate('login');showToast('No se pudo car
   </script>
 </body>
 </html>
+
