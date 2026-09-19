@@ -1507,7 +1507,7 @@ function navigateApp(pg){
     home:buildHome, chat:buildChat, lessons:buildLessons,
     devotional:buildDevotional, reading:buildReading,
     quiz:buildQuiz, haven:buildHaven, churches:buildChurches, store:buildStore,
-    children:buildChildren, security:buildSecurity
+    security:buildSecurity
   };
   const mc = document.getElementById('main-content');
   if(!mc) return;
@@ -2343,15 +2343,6 @@ function enterMode(m){state.mode=m;document.body.classList.toggle('kids-mode',m=
 // ══════════════════════════════════
 // TOGGLES
 // ══════════════════════════════════
-function toggleMode(){
-  if(state.mode==='adult'){
-    // Para entrar a modo niños hace falta elegir (o crear) un perfil de hijo
-    navigateApp('children');
-    return;
-  }
-  exitChildMode();
-}
-
 function applyMode(){
   document.body.classList.toggle('kids-mode',state.mode==='kids');
   const mb=document.getElementById('app-mode'); if(mb) mb.textContent=state.mode==='kids'?t('switchToAdult'):t('switchToKids');
@@ -2377,14 +2368,6 @@ async function loadChildProfiles(){
   if(!state.user) return;
   const { data } = await db.from('child_profiles').select('*').eq('parent_id',state.user.id).order('created_at');
   state.childProfiles = data||[];
-}
-
-async function enterChildMode(id){
-  const c = state.childProfiles.find(c=>c.id===id);
-  if(!c) return;
-  state.mode='kids'; state.activeChildId=c.id; state.activeChildName=c.name;
-  applyMode();
-  navigateApp('home');
 }
 
 async function createChildProfile(){
@@ -2725,13 +2708,6 @@ async function saveLessonProgress(slug,progress,completed){
   const result=await api('/progress',{slug,progress:completed?100:Math.min(99,progress),timezone:Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC'});
   state.lessonProgress[slug]={progress:completed?100:progress,completed};state.streak=result.streak;state.user.streak=result.streak;state.user.coins+=result.reward;
 }
-async function enterChildMode(id){
-  try{
-    closeLesson();state.questions=[];
-    await api('/session/child',{child_id:id});
-    await hydrateSession(state.supaSession);buildApp();navigate('app');navigateApp('lessons');applyMode();
-  }catch(error){showToast(error.message);}
-}
 async function exitChildMode(){
   // The server lock cannot be removed by toggling a client flag. A new login is required.
   await signOut();showToast(state.lang==='es'?'Para entrar al mundo adulto, la persona responsable debe iniciar sesión de nuevo.':'A guardian must sign in again to enter the adult world.');
@@ -2743,7 +2719,7 @@ async function signOut(){
   document.body.classList.remove('kids-mode');navigate('login');
 }
 function setChatMode(){showToast('El mundo se determina por tu sesión.');}
-function enterMode(mode){if(!state.user){navigate('login');return;}if(mode==='kids'&&state.mode==='adult'){navigateApp('children');return;}navigate('app');navigateApp('home');}
+function enterMode(){if(!state.user){navigate('login');return;}navigate('app');navigateApp('home');}
 
 function showCheckoutQuote(quote){
   const target=new URL(quote.init_point);
